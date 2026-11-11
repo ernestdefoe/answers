@@ -315,9 +315,12 @@ html:not(#x-hi) .Answers-helper {
   font-size: 12.5px;
   color: var(--muted-color);
   cursor: pointer;
-  &:hover,
+  &:hover:not(.is-static),
   &:focus-visible {
     color: var(--primary-color);
+  }
+  &.is-static {
+    cursor: default;
   }
 }
 

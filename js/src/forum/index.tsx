@@ -375,11 +375,18 @@ app.initializers.add('ernestdefoe/answers', () => {
     if (revisions) {
       // Ours opens the full history; core's "Edited" would say the same thing twice.
       if (items.has('edited')) items.remove('edited');
+      const label = t('post.revisions', { count: revisions - 1 });
       items.add(
         'answersRevisions',
-        <button type="button" className="Answers-revisionsLink" onclick={() => openModal('HistoryModal', { post })}>
-          <Icon name="fas fa-clock-rotate-left" /> {t('post.revisions', { count: revisions - 1 })}
-        </button>,
+        post.attribute('canAnswersHistory') ? (
+          <button type="button" className="Answers-revisionsLink" onclick={() => openModal('HistoryModal', { post })}>
+            <Icon name="fas fa-clock-rotate-left" /> {label}
+          </button>
+        ) : (
+          <span className="Answers-revisionsLink is-static">
+            <Icon name="fas fa-clock-rotate-left" /> {label}
+          </span>
+        ),
         -20
       );
     }

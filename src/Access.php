@@ -55,6 +55,16 @@ class Access
             && ! $this->canEditOthers($actor, $post->discussion);
     }
 
+    /**
+     * Old revisions can hold what an author took out on purpose, so history is for the author,
+     * the members trusted to edit answers in this question, and moderators.
+     */
+    public function canSeeHistory(User $actor, Post $post): bool
+    {
+        return ! $actor->isGuest()
+            && ($post->user_id === $actor->id || $this->canEditOthers($actor, $post->discussion));
+    }
+
     public function canReview(User $actor, Discussion $discussion): bool
     {
         return $this->earned($actor, $discussion, 'answersReview', 'review_reputation');

@@ -49,8 +49,9 @@ class ReadController implements RequestHandlerInterface
     {
         $actor = RequestUtil::getActor($request);
         $post = Input::post($request, $actor);
+        $history = $this->access->canSeeHistory($actor, $post);
 
-        $rows = $this->db->table('answers_revisions')->where('post_id', $post->id)->orderBy('id')->get();
+        $rows = ! $history ? collect() : $this->db->table('answers_revisions')->where('post_id', $post->id)->orderBy('id')->get();
         $users = $this->users($actor, $rows->pluck('user_id')->filter()->unique()->all());
 
         $revisions = [];
@@ -78,13 +79,13 @@ class ReadController implements RequestHandlerInterface
     private function similar(ServerRequestInterface $request): ResponseInterface
     {
         $actor = RequestUtil::getActor($request);
+        // Only the composer asks, and only members can start a discussion.
+        $actor->assertRegistered();
         $q = trim((string) ($request->getQueryParams()['q'] ?? ''));
         if (mb_strlen($q) < 12) {
             return new JsonResponse(['data' => []]);
         }
-        if (! $actor->isGuest()) {
-            $this->limits->check($actor, 'similar', 30);
-        }
+        $this->limits->check($actor, 'similar', 30);
 
         // Titles only, word by word, ranked by how many words match: the same on every database and search
         // driver, and cheap, since only solved questions are read (the answers_state index).

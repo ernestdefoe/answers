@@ -374,10 +374,16 @@ class AnswersTest extends TestCase
 
         [$status, $body] = $this->api('GET', '/answers/posts/2/revisions', 4);
         $this->assertSame(200, $status);
-        $this->assertCount(2, $body['revisions']);
+        $this->assertSame([], $body['revisions'], 'history is for the author, trusted editors and moderators');
+        [$status, $body] = $this->api('GET', '/answers/posts/2/revisions', 3);
+        $this->assertCount(2, $body['revisions'], 'the author sees it');
+        [$status, $body] = $this->api('GET', '/answers/posts/2/revisions', 6);
         $this->assertSame('ana', $body['revisions'][0]['user']['username']);
-        $this->assertSame('cy', $body['revisions'][1]['user']['username']);
+        $this->assertSame('cy', $body['revisions'][1]['user']['username'], 'and so does a trusted editor');
+        [, $body] = $this->api('GET', '/answers/posts/2/revisions', 4);
         $this->assertNotNull($body['source'], 'a member who may suggest an edit starts from the source');
+        [$status] = $this->api('GET', '/answers/similar', null, [], ['q' => 'Migration fails on PostgreSQL']);
+        $this->assertSame(401, $status, 'similar questions are for members writing one');
         [, $body] = $this->api('GET', '/answers/posts/2/revisions', null);
         $this->assertNull($body['source'], 'guests get no source');
 

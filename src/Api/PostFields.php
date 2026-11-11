@@ -51,6 +51,9 @@ class PostFields
 
                     return fn () => $this->batch->rep($context->request, $post->user_id, $tags);
                 }),
+            Schema\Boolean::make('canAnswersHistory')
+                ->visible(fn (Post $post) => $post->answers_revisions > 0)
+                ->get(fn (Post $post, Context $context) => $this->access->canSeeHistory($context->getActor(), $post)),
             Schema\Boolean::make('canAnswersVote')
                 ->visible($inQuestion)
                 ->get(fn (Post $post, Context $context) => $this->access->canVote($context->getActor(), $post)),
