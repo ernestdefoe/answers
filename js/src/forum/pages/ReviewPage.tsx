@@ -112,6 +112,14 @@ export default class ReviewPage extends Page {
     );
   }
 
+  improve(item: Item, e: MouseEvent) {
+    const article = (e.currentTarget as HTMLElement).closest('.Answers-reviewItem');
+    this.improving[item.id] = item.content || '';
+    // Draw now and focus inside the tap, or phones don't raise the keyboard.
+    m.redraw.sync();
+    (article?.querySelector('.Answers-reviewEdit') as HTMLTextAreaElement | null)?.focus();
+  }
+
   item(item: Item) {
     const link = app.route('discussion.near', { id: item.discussion.id + '-' + item.discussion.slug, near: item.post.number });
     const improving = this.improving[item.id];
@@ -160,7 +168,7 @@ export default class ReviewPage extends Page {
                   {t(improving !== undefined ? 'review.save_improved' : 'review.approve')}
                 </Button>,
                 item.canImprove && improving === undefined && (
-                  <Button className="Button" icon="fas fa-pen" onclick={() => (this.improving[item.id] = item.content || '')}>
+                  <Button className="Button" icon="fas fa-pen" onclick={(e: MouseEvent) => this.improve(item, e)}>
                     {t('review.improve')}
                   </Button>
                 ),
