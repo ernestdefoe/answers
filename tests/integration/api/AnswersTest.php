@@ -610,4 +610,22 @@ class AnswersTest extends TestCase
         $this->assertSame(10, $this->rep(3));
         $this->assertSame(0, $this->rep(4), 'the voter\'s downvote cost came back when the vote changed');
     }
+
+    #[Test]
+    public function a_bounty_is_paid_once_even_when_two_payers_read_it_open(): void
+    {
+        $this->boot();
+        $this->db()->table('answers_reputation')->insert(['user_id' => 2, 'tag_id' => 1, 'points' => 200]);
+        $this->api('POST', '/answers/discussions/1/bounty', 2, ['amount' => 100, 'currency' => 'rep']);
+        $bounty = $this->db()->table('answers_bounties')->first();
+        $post = Post::query()->find(3);
+
+        // Two payers (an accept and the expiry run, or two accepts) holding the same open bounty.
+        $award = new \ReflectionMethod(Bounties::class, 'award');
+        $award->invoke(resolve(Bounties::class), $bounty, $post, 100);
+        $award->invoke(resolve(Bounties::class), $bounty, $post, 100);
+
+        $this->assertSame(100, $this->rep(4), 'paid once');
+        $this->assertSame(1, $this->db()->table('answers_reputation_log')->where('reason', 'bounty')->count());
+    }
 }

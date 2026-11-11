@@ -138,29 +138,48 @@ class Bounties
         return $done;
     }
 
+    /**
+     * Pay a bounty, once. The claim (open → awarded) is a conditional update, and only the caller whose
+     * claim changed the row pays: an accept during the expiry run, or two accepts at once, can't both pay.
+     */
     private function award(object $bounty, Post $post, int $amount): void
     {
-        if ($bounty->currency === 'money') {
-            $this->db->table('users')->where('id', $post->user_id)->increment('money', $amount);
-            $this->moneyChanged($post->user_id);
-        } elseif ($bounty->tag_id) {
-            $this->reputation->give($post->user_id, [(int) $bounty->tag_id], $amount, 'bounty', (int) $bounty->discussion_id, $post->id);
+        $paid = $this->db->transaction(function () use ($bounty, $post, $amount) {
+            if (! $this->close($bounty, 'awarded', $post, $amount)) {
+                return false;
+            }
+            if ($bounty->currency === 'money') {
+                $this->db->table('users')->where('id', $post->user_id)->increment('money', $amount);
+            } elseif ($bounty->tag_id) {
+                $this->reputation->give($post->user_id, [(int) $bounty->tag_id], $amount, 'bounty', (int) $bounty->discussion_id, $post->id);
+            }
+
+            return true;
+        });
+        if (! $paid) {
+            return;
         }
 
-        $this->close($bounty, 'awarded', $post, $amount);
-
+        if ($bounty->currency === 'money') {
+            $this->moneyChanged($post->user_id);
+        }
         if ($post->user) {
             $this->notifications->sync(new BountyAwardedBlueprint($post, $amount, $bounty->currency), [$post->user]);
         }
         $this->events->dispatch(new BountyAwarded($post, $amount, $bounty->currency));
     }
 
-    private function close(object $bounty, string $status, ?Post $post = null, int $amount = 0): void
+    /** @return bool whether this call closed it (false: someone else already had). */
+    private function close(object $bounty, string $status, ?Post $post = null, int $amount = 0): bool
     {
-        $this->db->table('answers_bounties')->where('id', $bounty->id)->update([
+        $claimed = $this->db->table('answers_bounties')->where('id', $bounty->id)->where('status', 'open')->update([
             'status' => $status, 'awarded_post_id' => $post?->id, 'awarded_user_id' => $post?->user_id, 'awarded_amount' => $amount,
         ]);
-        $this->db->table('discussions')->where('id', $bounty->discussion_id)->update(['answers_bounty' => 0, 'answers_bounty_ends_at' => null]);
+        if ($claimed) {
+            $this->db->table('discussions')->where('id', $bounty->discussion_id)->update(['answers_bounty' => 0, 'answers_bounty_ends_at' => null]);
+        }
+
+        return $claimed === 1;
     }
 
     public function open(int $discussionId): ?object
