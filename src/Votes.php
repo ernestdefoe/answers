@@ -39,6 +39,9 @@ class Votes
         if ($value < -1 || $value > 1 || ($isComment && $value < 0)) {
             throw Fail::on('value', 'invalid');
         }
+        if ($isComment && ! Question::commentsOn($discussion)) {
+            throw Fail::on('value', 'comments_off');
+        }
 
         // One transaction, locks taken in the order every writer here uses (discussion → post → reputation rows
         // by user id): concurrent votes on a post queue up, each reads the vote it replaces only under the lock

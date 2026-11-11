@@ -32,7 +32,7 @@ export default class AnswerBlock extends Component<Attrs> {
         <Vote post={post} discussion={discussion} question={question} />
         <div className="AnswersPost-main">
           <CommentPost post={post} />
-          {!post.isHidden() && <Comments post={post} discussion={discussion} />}
+          {!post.isHidden() && discussion.attribute('answersComments') !== false && <Comments post={post} discussion={discussion} />}
         </div>
       </div>
     );

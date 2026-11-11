@@ -63,7 +63,7 @@ class PostFields
             Schema\Relationship\ToMany::make('answersComments')
                 ->type('posts')
                 ->includable()
-                ->visible($inQuestion),
+                ->visible(fn (Post $post) => Question::is($post->discussion) && Question::commentsOn($post->discussion)),
         ];
     }
 }

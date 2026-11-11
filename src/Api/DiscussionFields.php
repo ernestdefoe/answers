@@ -54,6 +54,8 @@ class DiscussionFields
                     ];
                 }),
 
+            Schema\Boolean::make('answersComments')->visible($page)
+                ->get(fn (Discussion $d) => Question::commentsOn($d)),
             Schema\Boolean::make('canAnswersAccept')->visible($page)
                 ->get(fn (Discussion $d, Context $context) => $this->access->canAccept($context->getActor(), $d)),
             Schema\Boolean::make('canAnswersEditOthers')->visible($page)

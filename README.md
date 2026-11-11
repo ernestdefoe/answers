@@ -6,7 +6,7 @@ Stack Overflow–style questions and answers for any Flarum 2 tag. Free and MIT.
 
 Turn a tag into Q&A and its discussions become questions:
 
-- **Answers sorted by votes**, the accepted answer pinned on top, and a short **comment thread** under each answer, so answers stay answers.
+- **Answers sorted by votes**, the accepted answer pinned on top, and a short **comment thread** under each answer, so answers stay answers (switch comments off per tag for a leaner layout).
 - **Votes and reputation per tag** ("Top helpers in Help"), on each member's profile, and beside names in threads.
 - **Question states**: Unanswered, Answered, Solved, Closed as duplicate (linked to the original), with a filter on the tag page and an **Unanswered for you** feed (tags you follow with FoF Follow Tags, or every Q&A tag).
 - **"Is this your question?"**: similar solved questions appear while someone types a title.

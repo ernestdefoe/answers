@@ -39,6 +39,12 @@ class Question
             && (int) $post->number !== 1;
     }
 
+    /** Comments are on unless one of the question's Q&A tags switches them off (its tags are usually loaded already). */
+    public static function commentsOn(Discussion $discussion): bool
+    {
+        return ! $discussion->tags->contains(fn ($tag) => $tag->answers_enabled && ! $tag->answers_comments);
+    }
+
     /** @return int[] the discussion's Q&A tags (its tags are usually loaded already). */
     public static function tagIds(Discussion $discussion): array
     {

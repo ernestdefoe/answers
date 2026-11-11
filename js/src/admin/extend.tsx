@@ -35,9 +35,10 @@ const number = (setting: string, key: string, min: number, max: number, priority
     priority
   );
 
-// The Q&A switch in each tag's edit dialog (Tags page). An extension's module needs the `ext:` prefix: a bare 'flarum/tags/…' resolves to core and never loads.
+// The Q&A switches in each tag's edit dialog (Tags page). An extension's module needs the `ext:` prefix: a bare 'flarum/tags/…' resolves to core and never loads.
 extend('ext:flarum/tags/admin/components/EditTagModal', 'oninit', function (this: any) {
   this.answersEnabled = Stream(!!this.tag.attribute('answersEnabled'));
+  this.answersComments = Stream(this.tag.attribute('answersComments') !== false);
 });
 extend('ext:flarum/tags/admin/components/EditTagModal', 'fields', function (this: any, items: ItemList<Mithril.Children>) {
   items.add(
@@ -50,12 +51,22 @@ extend('ext:flarum/tags/admin/components/EditTagModal', 'fields', function (this
         </label>
         <p className="helpText">{t('tag.enable_help')}</p>
       </div>
+      {this.answersEnabled() && (
+        <div>
+          <label className="checkbox">
+            <input type="checkbox" bidi={this.answersComments} />
+            {t('tag.comments')}
+          </label>
+          <p className="helpText">{t('tag.comments_help')}</p>
+        </div>
+      )}
     </div>,
     9
   );
 });
 extend('ext:flarum/tags/admin/components/EditTagModal', 'submitData', function (this: any, data: Record<string, unknown>) {
   data.answersEnabled = this.answersEnabled();
+  if (this.answersEnabled()) data.answersComments = this.answersComments();
 });
 
 export default [

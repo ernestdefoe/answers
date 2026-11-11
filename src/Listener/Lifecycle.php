@@ -77,10 +77,15 @@ class Lifecycle
 
         if ($parentId === null) {
             if ($discussion->answers_duplicate_of_id && $discussion->first_post_id) {
-                throw Fail::on('content', 'closed_as_duplicate');
+                throw Fail::on('content', Question::commentsOn($discussion) ? 'closed_as_duplicate' : 'closed_as_duplicate_no_comments');
             }
 
             return;
+        }
+
+        // Switched off in the tag: existing comments stay in the database (hidden), new ones are refused.
+        if (! Question::commentsOn($discussion)) {
+            throw Fail::on('answersParentId', 'comments_off');
         }
 
         $parent = Post::query()->find($parentId);

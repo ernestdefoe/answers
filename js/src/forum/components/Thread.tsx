@@ -152,7 +152,7 @@ export default class Thread extends Component<{ discussion: Discussion }> {
           </button>
         )}
         <p className="Answers-hint">
-          <Icon name="fas fa-circle-info" /> {t('thread.hint')}
+          <Icon name="fas fa-circle-info" /> {t(discussion.attribute('answersComments') === false ? 'thread.hint_no_comments' : 'thread.hint')}
         </p>
       </div>
     );

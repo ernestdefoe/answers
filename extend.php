@@ -105,7 +105,8 @@ return [
         ->belongsTo('answersDuplicateOf', Discussion::class, 'answers_duplicate_of_id'),
 
     (new Extend\Model(Tag::class))
-        ->cast('answers_enabled', 'boolean'),
+        ->cast('answers_enabled', 'boolean')
+        ->cast('answers_comments', 'boolean'),
 
     (new Extend\Model(User::class))
         ->cast('answers_accepted_count', 'integer')
@@ -134,6 +135,10 @@ return [
                         $tag->afterSave(fn (Tag $tag) => resolve(Question::class)->refreshTag($tag->id));
                     }
                 }),
+            // Off hides every comment thread in the tag's questions and refuses new ones; the comments are kept.
+            Schema\Boolean::make('answersComments')
+                ->property('answers_comments')
+                ->writable(fn (Tag $tag, Context $context) => $context->getActor()->isAdmin()),
         ]),
 
     (new Extend\ApiResource(Resource\UserResource::class))

@@ -496,6 +496,52 @@ class AnswersTest extends TestCase
     }
 
     #[Test]
+    public function a_tag_can_switch_comments_off_and_back_on_without_losing_them(): void
+    {
+        $this->boot();
+        [, $body] = $this->reply(6, 1, 'Which Flarum version are you on?', 2);
+        $comment = (int) $body['data']['id'];
+        $patch = fn (int $as, bool $on) => $this->api('PATCH', '/tags/1', $as, ['data' => ['type' => 'tags', 'id' => '1', 'attributes' => ['answersComments' => $on]]]);
+        $thread = fn () => $this->api('GET', '/posts', 4, [], ['filter' => ['discussion' => '1', 'answers' => 'top'], 'include' => 'answersComments'])[1]['data'];
+
+        // Only an admin flips it.
+        $patch(4, false);
+        $this->assertTrue((bool) $this->db()->table('tags')->where('id', 1)->value('answers_comments'));
+        [$status, $body] = $patch(1, false);
+        $this->assertSame(200, $status, json_encode($body));
+        $this->assertFalse($body['data']['attributes']['answersComments']);
+
+        // Off: the page says so, threads carry no comments, new comments and comment votes are refused.
+        [, $body] = $this->api('GET', '/discussions/1', 4);
+        $this->assertFalse($body['data']['attributes']['answersComments']);
+        foreach ($thread() as $post) {
+            $this->assertArrayNotHasKey('answersComments', $post['relationships'] ?? []);
+        }
+        [$status, $body] = $this->reply(6, 1, 'Another question for you.', 2);
+        $this->assertSame(422, $status);
+        $this->assertSame('/data/attributes/answersParentId', $body['errors'][0]['source']['pointer'] ?? null, json_encode($body));
+        [$status] = $this->api('POST', '/answers/posts/'.$comment.'/vote', 4, ['value' => 1]);
+        $this->assertSame(422, $status);
+
+        // Answers, votes, reputation and review carry on as before.
+        [$status, $body] = $this->reply(7, 1, 'Ok');
+        $this->assertSame(201, $status);
+        $this->assertSame(3, (int) $this->discussion(1)->answers_count);
+        $this->assertEqualsCanonicalizing(['first_answer', 'low_quality'], $this->db()->table('answers_reviews')->where('post_id', $body['data']['id'])->pluck('type')->all());
+        [$status] = $this->api('POST', '/answers/posts/2/vote', 4, ['value' => 1]);
+        $this->assertSame(200, $status);
+        $this->assertSame(10, $this->rep(3));
+
+        // The comment was kept, and on again it is back.
+        $this->assertTrue($this->db()->table('posts')->where('id', $comment)->exists());
+        $patch(1, true);
+        $byId = array_column($thread(), null, 'id');
+        $this->assertSame([(string) $comment], array_column($byId['2']['relationships']['answersComments']['data'], 'id'));
+        [$status] = $this->reply(6, 1, 'Thanks, that worked.', 2);
+        $this->assertSame(201, $status);
+    }
+
+    #[Test]
     public function similar_solved_questions_are_suggested_while_asking(): void
     {
         $this->boot();
