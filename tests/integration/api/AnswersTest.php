@@ -644,4 +644,26 @@ class AnswersTest extends TestCase
         $this->assertSame(0, (int) $this->db()->table('users')->where('id', 3)->value('answers_accepted_count'));
         $this->assertSame(1, (int) $this->db()->table('users')->where('id', 2)->value('answers_solved_count'));
     }
+
+    #[Test]
+    public function a_bounty_never_spends_more_reputation_than_is_there(): void
+    {
+        $this->boot();
+        $this->db()->table('answers_reputation')->insert(['user_id' => 2, 'tag_id' => 1, 'points' => 120]);
+        $this->db()->table('discussions')->where('id', 3)->update(['user_id' => 2]);
+        $asker = User::query()->find(2);
+        $bounties = resolve(Bounties::class);
+
+        // This request read 120; another bounty spent 100 of it meanwhile.
+        resolve(\ErnestDefoe\Answers\Reputation::class)->best($asker, [1]);
+        $this->db()->table('answers_reputation')->where('user_id', 2)->update(['points' => 20]);
+
+        try {
+            $bounties->start(Discussion::query()->with('tags')->find(3), $asker, 100, 'rep', 'attention');
+            $this->fail('a second bounty passed on a stale balance');
+        } catch (\Flarum\Foundation\ValidationException) {
+        }
+        $this->assertSame(20, $this->rep(2));
+        $this->assertSame(0, (int) $this->discussion(3)->answers_bounty);
+    }
 }

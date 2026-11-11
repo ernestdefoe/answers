@@ -79,10 +79,9 @@ class Bounties
                 }
                 $this->moneyChanged($actor->id);
             } else {
-                if (! $tagId || $this->reputation->best($actor, [$tagId]) < $amount) {
+                if (! $tagId || ! $this->reputation->spend($actor->id, $tagId, $amount, 'bounty_offered', $discussion->id)) {
                     throw Fail::on('amount', 'not_enough');
                 }
-                $this->reputation->give($actor->id, [$tagId], -$amount, 'bounty_offered', $discussion->id);
                 $this->reputation->forgetMemo($actor);
             }
 

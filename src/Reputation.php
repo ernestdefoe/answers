@@ -42,6 +42,26 @@ class Reputation
         }
     }
 
+    /**
+     * Spend points (a bounty): one conditional decrement, so two spends at once can't both pass a balance
+     * read and take a member below zero. Returns false when there isn't enough.
+     */
+    public function spend(int $userId, int $tagId, int $points, string $reason, ?int $discussionId = null): bool
+    {
+        $spent = $this->db->table('answers_reputation')->where('user_id', $userId)->where('tag_id', $tagId)
+            ->where('points', '>=', $points)->decrement('points', $points);
+        if (! $spent) {
+            return false;
+        }
+        $this->db->table('answers_reputation_log')->insert([
+            'user_id' => $userId, 'tag_id' => $tagId, 'discussion_id' => $discussionId, 'post_id' => null,
+            'reason' => $reason, 'points' => -$points, 'created_at' => Carbon::now(),
+        ]);
+        $this->events->dispatch(new ReputationChanged($userId, $tagId, -$points, $reason));
+
+        return true;
+    }
+
     /** Take back one award: the newest matching row per tag. */
     public function takeBack(?int $userId, string $reason, ?int $discussionId, ?int $postId): void
     {
