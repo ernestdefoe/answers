@@ -99,6 +99,17 @@ class Reputation
         $this->db->table('answers_reputation_log')->whereIn('id', $rows->pluck('id'))->delete();
     }
 
+    /** A post was hidden: the reputation its votes earned (or cost) goes until it's restored (Votes::restore). */
+    public function forgetVotes(int $postId): void
+    {
+        $rows = $this->db->table('answers_reputation_log')->where('post_id', $postId)
+            ->whereIn('reason', ['upvote', 'downvote', 'downvote_cast'])->get(['id', 'user_id', 'tag_id', 'points']);
+        foreach ($rows->groupBy(fn ($row) => $row->user_id.':'.$row->tag_id) as $group) {
+            $this->bump((int) $group[0]->user_id, (int) $group[0]->tag_id, -(int) $group->sum('points'));
+        }
+        $this->db->table('answers_reputation_log')->whereIn('id', $rows->pluck('id'))->delete();
+    }
+
     /** A member's best standing among these tags (thresholds count in any Q&A tag of the question). */
     public function best(User $actor, array $tagIds): int
     {

@@ -717,4 +717,22 @@ class AnswersTest extends TestCase
         $this->assertSame(422, $close(3, 1));
         $this->assertNull($this->discussion(3)->answers_duplicate_of_id);
     }
+
+    #[Test]
+    public function a_hidden_answer_earns_nothing_until_it_is_restored(): void
+    {
+        $this->boot();
+        $this->api('POST', '/answers/posts/2/vote', 4, ['value' => 1]);
+        $this->api('POST', '/answers/posts/2/vote', 6, ['value' => -1]);
+        $this->assertSame(8, $this->rep(3));
+        $this->assertSame(-1, $this->rep(6));
+
+        $hide = fn (bool $hidden) => $this->api('PATCH', '/posts/2', 1, ['data' => ['type' => 'posts', 'id' => '2', 'attributes' => ['isHidden' => $hidden]]]);
+        $hide(true);
+        $this->assertSame(0, $this->rep(3));
+        $this->assertSame(0, $this->rep(6));
+        $hide(false);
+        $this->assertSame(8, $this->rep(3));
+        $this->assertSame(-1, $this->rep(6));
+    }
 }

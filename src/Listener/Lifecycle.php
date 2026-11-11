@@ -8,6 +8,7 @@ use ErnestDefoe\Answers\Question;
 use ErnestDefoe\Answers\Reputation;
 use ErnestDefoe\Answers\Reviews;
 use ErnestDefoe\Answers\Settings;
+use ErnestDefoe\Answers\Votes;
 use Flarum\Discussion\Discussion;
 use Flarum\Discussion\Event\Deleting as DiscussionDeleting;
 use Flarum\Discussion\Event\Started;
@@ -39,6 +40,7 @@ class Lifecycle
         private readonly Access $access,
         private readonly Reputation $reputation,
         private readonly Reviews $reviews,
+        private readonly Votes $votes,
         private readonly Settings $settings,
         private readonly ConnectionInterface $db
     ) {
@@ -49,7 +51,7 @@ class Lifecycle
         $events->listen(Saving::class, $this->saving(...));
         $events->listen(Posted::class, $this->posted(...));
         $events->listen(Hidden::class, $this->hidden(...));
-        $events->listen(Restored::class, fn (Restored $e) => $this->recount($e->post));
+        $events->listen(Restored::class, $this->restored(...));
         $events->listen(Deleting::class, $this->deleting(...));
         $events->listen(Deleted::class, fn (Deleted $e) => $this->recount($e->post));
         $events->listen(Started::class, fn (Started $e) => $this->retagged($e->discussion));
@@ -153,7 +155,18 @@ class Lifecycle
         if ($discussion->answers_accepted_post_id === $post->id) {
             $this->accept->set($discussion, null, $this->actorFor($post));
         }
+        // A hidden post earns nothing: its votes' reputation goes until it's restored.
+        $this->reputation->forgetVotes($post->id);
         $this->recount($post);
+    }
+
+    public function restored(Restored $event): void
+    {
+        $post = $event->post;
+        if (Question::is($post->discussion)) {
+            $this->votes->restore($post);
+            $this->recount($post);
+        }
     }
 
     public function deleting(Deleting $event): void

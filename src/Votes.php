@@ -87,6 +87,23 @@ class Votes
         return ['score' => $score, 'vote' => $value];
     }
 
+    /** A hidden post was restored: give back what each of its votes earns, as if cast again. */
+    public function restore(Post $post): void
+    {
+        $discussion = $post->discussion;
+        if ($post->answers_parent_id !== null || ! Question::is($discussion)) {
+            return;
+        }
+        $isQuestion = $post->id === $discussion->first_post_id;
+        $tags = Question::tagIds($discussion);
+        $this->reputation->forgetVotes($post->id);
+        foreach ($this->db->table('answers_votes')->where('post_id', $post->id)->get(['user_id', 'value']) as $vote) {
+            $voter = new User();
+            $voter->id = (int) $vote->user_id;
+            $this->apply($post, $voter, (int) $vote->value, $isQuestion, $tags);
+        }
+    }
+
     private function apply(Post $post, User $actor, int $value, bool $isQuestion, array $tags): void
     {
         if ($value > 0) {
