@@ -78,7 +78,7 @@ export default class SuggestModal extends FormModal<Attrs> {
   onsubmit(e: SubmitEvent) {
     e.preventDefault();
     this.loading = true;
-    call('POST', `/answers/posts/${this.attrs.post.id()}/suggest`, { content: this.text, summary: this.summary })
+    call('POST', `/answers/posts/${this.attrs.post.id()}/suggest`, { content: this.text, summary: this.summary }, true)
       .then(() => {
         this.hide();
         app.alerts.show({ type: 'success' }, t('suggest.sent'));

@@ -98,7 +98,7 @@ export default class CloseModal extends FormModal<Attrs> {
     if (!this.picked) return;
     this.loading = true;
     const discussion = this.attrs.discussion;
-    call('POST', `/answers/discussions/${discussion.id()}/close`, { duplicateOf: Number(this.picked.id()) })
+    call('POST', `/answers/discussions/${discussion.id()}/close`, { duplicateOf: Number(this.picked.id()) }, true)
       .then((r) => {
         if (r.duplicateOfId) {
           return app.store.find('discussions', discussion.id()!).then(() => this.hide());

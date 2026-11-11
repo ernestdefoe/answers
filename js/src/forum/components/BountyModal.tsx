@@ -107,7 +107,7 @@ export default class BountyModal extends FormModal<Attrs> {
     e.preventDefault();
     this.loading = true;
     const discussion = this.attrs.discussion;
-    call('POST', `/answers/discussions/${discussion.id()}/bounty`, { amount: this.amount, currency: this.currency, reason: this.reason })
+    call('POST', `/answers/discussions/${discussion.id()}/bounty`, { amount: this.amount, currency: this.currency, reason: this.reason }, true)
       .then(() => app.store.find('discussions', discussion.id()!))
       .then(() => this.hide())
       .catch((error) => this.onerror(error))

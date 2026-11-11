@@ -25,9 +25,9 @@ export const currentQaTag = (): Tag | null => {
 
 export const postDiscussion = (post: Post): Discussion | null => (post.discussion() as Discussion) || null;
 
-/** A JSON request to our own endpoints; errors show Flarum's alert. */
-export function call<T = any>(method: string, path: string, body?: Record<string, unknown>): Promise<T> {
-  return app.request<T>({ method, url: app.forum.attribute('apiUrl') + path, body });
+/** A JSON request to our own endpoints; errors show Flarum's alert, unless `quiet` (a modal shows them itself). */
+export function call<T = any>(method: string, path: string, body?: Record<string, unknown>, quiet = false): Promise<T> {
+  return app.request<T>({ method, url: app.forum.attribute('apiUrl') + path, body, errorHandler: quiet ? () => {} : undefined });
 }
 
 export const formatNumber = (n: number) => (n || 0).toLocaleString();
