@@ -542,9 +542,15 @@ class AnswersTest extends TestCase
         $this->boot();
         $this->api('POST', '/answers/posts/2/vote', 6, ['value' => 1]);
         $this->api('POST', '/answers/posts/1/vote', 6, ['value' => 1]);
-        $this->assertSame(10, $this->rep(3));
+        $this->api('POST', '/answers/posts/2/vote', 7, ['value' => 1]);
+        $this->assertSame(20, $this->rep(3));
         [$status] = $this->api('DELETE', '/users/6', 1);
         $this->assertSame(204, $status);
+        // The deleted member's own vote is the one taken back.
+        $this->assertSame([7], $this->db()->table('answers_reputation_log')->where('post_id', 2)->where('reason', 'upvote')->pluck('actor_id')->map(fn ($id) => (int) $id)->all());
+        $this->db()->table('answers_votes')->where('user_id', 7)->delete();
+        $this->db()->table('posts')->where('id', 2)->decrement('answers_score');
+        $this->db()->table('answers_reputation')->where('user_id', 3)->decrement('points', 10);
         $this->assertSame(0, (int) $this->db()->table('posts')->where('id', 2)->value('answers_score'));
         $this->assertSame(0, (int) $this->discussion(1)->answers_score);
         $this->assertSame(0, $this->rep(3));

@@ -140,7 +140,7 @@ class Lifecycle
         }
 
         // Very short, or nothing but a link: worth a second look.
-        $text = trim(preg_replace('~https?://\S+~', '', strip_tags((string) $post->formatContent())) ?? '');
+        $text = trim(preg_replace('~https?://\S+~', '', strip_tags($post instanceof CommentPost ? $post->formatContent() : '')) ?? '');
         if (mb_strlen($text) < $this->settings->int('low_quality_length')) {
             $this->reviews->open('low_quality', $post);
         }

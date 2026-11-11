@@ -23,7 +23,7 @@ class Forget
             ->where('answers_votes.user_id', $user->id)
             ->orderBy('answers_votes.id')
             ->select('answers_votes.id', 'answers_votes.post_id', 'answers_votes.value', 'posts.user_id', 'posts.discussion_id', 'posts.answers_parent_id')
-            ->chunk(500, function ($votes) {
+            ->chunk(500, function ($votes) use ($user) {
                 foreach ($votes as $vote) {
                     $this->db->table('posts')->where('id', $vote->post_id)->decrement('answers_score', (int) $vote->value);
                     if ($vote->answers_parent_id === null) {
