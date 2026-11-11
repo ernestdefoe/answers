@@ -1,0 +1,17 @@
+includes:
+    - vendor/flarum/phpstan/extension.neon
+
+parameters:
+    # One process: flarum/phpstan's bootstrap installs a test forum the first
+    # time it runs, and parallel workers each start that install at once on a
+    # fresh checkout (CI), failing with Install\StepFailed.
+    parallel:
+        maximumNumberOfProcesses: 1
+    level: 6
+    paths:
+        - extend.php
+        - src
+    databaseMigrationsPath: [migrations]
+    ignoreErrors:
+        # Relations and columns other extensions add to core's models (flarum/tags; fof/best-answer, read by the import).
+        - '#^Access to an undefined property Flarum\\Discussion\\Discussion::\$(tags|best_answer_post_id|best_answer_user_id)\.$#'

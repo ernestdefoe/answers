@@ -1,0 +1,8 @@
+js/node_modules/
+.DS_Store
+vendor/
+composer.lock
+.test-build/
+.phpunit.result.cache
+/tests/integration/tmp
+/js/coverage-ts

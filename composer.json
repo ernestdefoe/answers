@@ -1,0 +1,94 @@
+{
+    "name": "ernestdefoe/answers",
+    "description": "Answers: Stack Overflow-style questions and answers for any tag. Answers sorted by votes with the accepted one on top, comment threads under each answer, reputation per tag, question states, duplicate suggestions, bounties, community edits with history and a review queue.",
+    "keywords": [
+        "flarum",
+        "flarum-extension",
+        "questions",
+        "answers",
+        "q&a",
+        "reputation",
+        "best-answer",
+        "support"
+    ],
+    "type": "flarum-extension",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Ernest Defoe",
+            "email": "ernestdefoe@gmail.com"
+        }
+    ],
+    "homepage": "https://github.com/ernestdefoe/answers",
+    "support": {
+        "issues": "https://github.com/ernestdefoe/answers/issues",
+        "source": "https://github.com/ernestdefoe/answers"
+    },
+    "funding": [
+        {
+            "type": "other",
+            "url": "https://buymeacoffee.com/ernestdefoe"
+        }
+    ],
+    "require": {
+        "php": "^8.3",
+        "flarum/core": "^2.0",
+        "flarum/tags": "^2.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "ErnestDefoe\\Answers\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "ErnestDefoe\\Answers\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "flarum-extension": {
+            "title": "Answers",
+            "category": "feature",
+            "icon": {
+                "name": "fas fa-circle-question",
+                "backgroundColor": "#2f8f6a",
+                "color": "#fff"
+            },
+            "optional-dependencies": [
+                "fof/best-answer",
+                "fof/gamification",
+                "antoinefr/flarum-ext-money",
+                "fof/follow-tags",
+                "flarum/gdpr"
+            ]
+        }
+    },
+    "require-dev": {
+        "antoinefr/flarum-ext-money": "^2.0",
+        "flarum/gdpr": "^2.0",
+        "flarum/phpstan": "^2.0",
+        "flarum/testing": "^2.0",
+        "fof/best-answer": "^2.0",
+        "fof/follow-tags": "^2.0",
+        "fof/gamification": "^2.0"
+    },
+    "scripts": {
+        "test": [
+            "@test:integration"
+        ],
+        "test:integration": "phpunit -c tests/phpunit.integration.xml",
+        "test:setup": "@php tests/integration/setup.php",
+        "analyse:phpstan": "phpstan analyse"
+    },
+    "scripts-descriptions": {
+        "test": "Runs all tests.",
+        "test:integration": "Runs all integration tests.",
+        "test:setup": "Sets up a database for use with integration tests. Execute this only once.",
+        "analyse:phpstan": "Run static analysis"
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "minimum-stability": "beta",
+    "prefer-stable": true
+}

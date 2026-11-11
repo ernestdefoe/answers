@@ -1,0 +1,122 @@
+<?php
+
+namespace ErnestDefoe\Answers\Tests\integration\api;
+
+use Carbon\Carbon;
+use ErnestDefoe\Answers\Import;
+use ErnestDefoe\Answers\Question;
+use Flarum\Discussion\Discussion;
+use Flarum\Post\Post;
+use Flarum\Tags\Tag;
+use Flarum\Testing\integration\RetrievesAuthorizedUsers;
+use Flarum\Testing\integration\TestCase;
+use Flarum\User\User;
+use Illuminate\Database\ConnectionInterface;
+use PHPUnit\Framework\Attributes\Test;
+
+/** The optional partners: FoF Best Answer (import), FoF Gamification (vote mirror), Money (bounties). */
+class IntegrationsTest extends TestCase
+{
+    use RetrievesAuthorizedUsers;
+
+    private function seed(): void
+    {
+        $old = Carbon::now()->subDays(5);
+        $this->prepareDatabase([
+            User::class => [
+                $this->normalUser(),
+                ['id' => 3, 'username' => 'ana', 'email' => 'ana@machine.local', 'is_email_confirmed' => 1],
+                ['id' => 4, 'username' => 'ben', 'email' => 'ben@machine.local', 'is_email_confirmed' => 1],
+            ],
+            Tag::class => [
+                ['id' => 1, 'name' => 'Plugins', 'slug' => 'plugins', 'position' => 0],
+            ],
+            Discussion::class => [
+                ['id' => 1, 'title' => 'A question', 'user_id' => 2, 'created_at' => $old, 'last_posted_at' => $old, 'first_post_id' => 1, 'comment_count' => 3, 'last_post_number' => 3, 'is_private' => false],
+            ],
+            'discussion_tag' => [['discussion_id' => 1, 'tag_id' => 1]],
+            Post::class => [
+                ['id' => 1, 'discussion_id' => 1, 'number' => 1, 'user_id' => 2, 'type' => 'comment', 'content' => '<t><p>Q</p></t>', 'created_at' => $old, 'is_private' => false],
+                ['id' => 2, 'discussion_id' => 1, 'number' => 2, 'user_id' => 3, 'type' => 'comment', 'content' => '<t><p>A</p></t>', 'created_at' => $old, 'is_private' => false],
+                ['id' => 3, 'discussion_id' => 1, 'number' => 3, 'user_id' => 4, 'type' => 'comment', 'content' => '<t><p>B</p></t>', 'created_at' => $old, 'is_private' => false],
+            ],
+        ]);
+    }
+
+    private function db(): ConnectionInterface
+    {
+        return resolve(ConnectionInterface::class);
+    }
+
+    #[Test]
+    public function best_answer_tags_and_answers_are_imported_once(): void
+    {
+        $this->extension('flarum-tags', 'fof-best-answer', 'ernestdefoe-answers');
+        $this->seed();
+        $this->app();
+        $this->db()->table('tags')->where('id', 1)->update(['is_qna' => true]);
+        $this->db()->table('discussions')->where('id', 1)->update(['best_answer_post_id' => 3, 'best_answer_user_id' => 2]);
+
+        $result = resolve(Import::class)->run();
+        $this->assertSame(['tags' => 1, 'questions' => 1, 'accepted' => 1], $result);
+
+        $d = $this->db()->table('discussions')->where('id', 1)->first();
+        $this->assertSame(3, (int) $d->answers_accepted_post_id);
+        $this->assertSame(Question::SOLVED, (int) $d->answers_state);
+        $this->assertSame(15, (int) $this->db()->table('answers_reputation')->where('user_id', 4)->value('points'));
+        $this->assertSame(0, $this->db()->table('notifications')->count(), 'an import alerts nobody');
+
+        // Again: nothing changes.
+        $this->assertSame(0, resolve(Import::class)->run()['accepted']);
+        $this->assertSame(15, (int) $this->db()->table('answers_reputation')->where('user_id', 4)->value('points'));
+
+        // The admin button does the same, admins only.
+        $response = $this->send($this->request('POST', '/api/answers/import', ['authenticatedAs' => 2]));
+        $this->assertSame(403, $response->getStatusCode());
+        $response = $this->send($this->request('POST', '/api/answers/import', ['authenticatedAs' => 1]));
+        $this->assertSame(200, $response->getStatusCode());
+    }
+
+    #[Test]
+    public function votes_are_mirrored_into_gamification(): void
+    {
+        $this->extension('flarum-tags', 'fof-gamification', 'ernestdefoe-answers');
+        $this->seed();
+        $this->app();
+        $this->db()->table('tags')->where('id', 1)->update(['answers_enabled' => true]);
+        resolve(Question::class)->refreshFlags([1]);
+
+        $response = $this->send($this->request('POST', '/api/answers/posts/2/vote', ['authenticatedAs' => 4, 'json' => ['value' => 1]]));
+        $this->assertSame(200, $response->getStatusCode(), (string) $response->getBody());
+        $this->assertSame(1, (int) $this->db()->table('post_votes')->where('post_id', 2)->where('user_id', 4)->value('value'));
+        $this->assertSame(1, (int) $this->db()->table('users')->where('id', 3)->value('votes'));
+
+        $this->send($this->request('POST', '/api/answers/posts/2/vote', ['authenticatedAs' => 4, 'json' => ['value' => 0]]));
+        $this->assertSame(0, (int) $this->db()->table('users')->where('id', 3)->value('votes'));
+    }
+
+    #[Test]
+    public function bounties_can_be_paid_in_money(): void
+    {
+        $driver = getenv('DB_DRIVER') ?: 'mysql';
+        if (! in_array($driver, ['mysql', 'mariadb'], true)) {
+            // antoinefr/money's migration adds a NOT NULL column without a default, which only MySQL accepts.
+            $this->markTestSkipped('Money installs on MySQL only.');
+        }
+        $this->extension('flarum-tags', 'antoinefr-money', 'ernestdefoe-answers');
+        $this->seed();
+        $this->app();
+        $this->db()->table('tags')->where('id', 1)->update(['answers_enabled' => true]);
+        resolve(Question::class)->refreshFlags([1]);
+        $this->db()->table('users')->where('id', 2)->update(['money' => 120]);
+
+        $bounty = fn (int $amount) => $this->send($this->request('POST', '/api/answers/discussions/1/bounty', ['authenticatedAs' => 2, 'json' => ['amount' => $amount, 'currency' => 'money']]));
+        $this->assertSame(422, $bounty(200)->getStatusCode());
+        $this->assertSame(0, (int) $this->db()->table('discussions')->where('id', 1)->value('answers_bounty'), 'a refused bounty claims nothing');
+        $this->assertSame(200, $bounty(100)->getStatusCode());
+        $this->assertSame(20.0, (float) $this->db()->table('users')->where('id', 2)->value('money'));
+
+        $this->send($this->request('POST', '/api/answers/discussions/1/accept', ['authenticatedAs' => 2, 'json' => ['postId' => 3]]));
+        $this->assertSame(100.0, (float) $this->db()->table('users')->where('id', 4)->value('money'));
+    }
+}

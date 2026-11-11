@@ -1,0 +1,97 @@
+<?php
+
+namespace ErnestDefoe\Answers;
+
+use ErnestDefoe\Answers\Event\AnswerAccepted;
+use ErnestDefoe\Answers\Event\AnswerUnaccepted;
+use ErnestDefoe\Answers\Notification\AnswerAcceptedBlueprint;
+use Flarum\Discussion\Discussion;
+use Flarum\Notification\NotificationSyncer;
+use Flarum\Post\Post;
+use Flarum\User\User;
+use Illuminate\Contracts\Events\Dispatcher;
+use Illuminate\Database\ConnectionInterface;
+
+/**
+ * Accepting an answer (or taking the acceptance back). The answer's author
+ * earns points_accepted and the asker points_accepter, unless they answered
+ * themselves; the counts on both members follow; a running bounty is paid.
+ */
+class Accept
+{
+    public function __construct(
+        private readonly ConnectionInterface $db,
+        private readonly Reputation $reputation,
+        private readonly Settings $settings,
+        private readonly Question $questions,
+        private readonly Bounties $bounties,
+        private readonly NotificationSyncer $notifications,
+        private readonly Dispatcher $events
+    ) {
+    }
+
+    /** $quiet: no alerts, events or bounty (the Best Answer import). */
+    public function set(Discussion $discussion, ?Post $post, User $actor, bool $quiet = false): void
+    {
+        $previous = $discussion->answers_accepted_post_id ? Post::query()->find($discussion->answers_accepted_post_id) : null;
+        if ($previous?->id === $post?->id) {
+            return;
+        }
+
+        $tags = Question::tagIds($discussion);
+
+        if ($previous) {
+            $this->reputation->takeBack($previous->user_id, 'accepted', $discussion->id, $previous->id);
+            $this->reputation->takeBack($discussion->user_id, 'accepter', $discussion->id, $previous->id);
+            $this->count($previous->user_id, 'answers_accepted_count', -1);
+            if (! $quiet) {
+                $this->notifications->delete(new AnswerAcceptedBlueprint($previous, $actor));
+            }
+        }
+
+        $this->db->table('discussions')->where('id', $discussion->id)->update(['answers_accepted_post_id' => $post?->id]);
+        $discussion->answers_accepted_post_id = $post?->id;
+
+        if ($post) {
+            if ($post->user_id !== $discussion->user_id) {
+                $this->reputation->give($post->user_id, $tags, $this->settings->int('points_accepted'), 'accepted', $discussion->id, $post->id);
+                $this->reputation->give($discussion->user_id, $tags, $this->settings->int('points_accepter'), 'accepter', $discussion->id, $post->id);
+            }
+            $this->count($post->user_id, 'answers_accepted_count', 1);
+        }
+
+        // The asker's "solved" count moves only when the question changes between solved and not.
+        if (! $previous && $post) {
+            $this->count($discussion->user_id, 'answers_solved_count', 1);
+        } elseif ($previous && ! $post) {
+            $this->count($discussion->user_id, 'answers_solved_count', -1);
+        }
+
+        $this->questions->recount($discussion->id);
+        $discussion->answers_state = (int) $this->db->table('discussions')->where('id', $discussion->id)->value('answers_state');
+
+        if ($quiet) {
+            return;
+        }
+
+        if ($post) {
+            if ($post->user_id && $post->user_id !== $actor->id && $post->user) {
+                $this->notifications->sync(new AnswerAcceptedBlueprint($post, $actor), [$post->user]);
+            }
+            $this->bounties->payOnAccept($discussion, $post);
+            $this->events->dispatch(new AnswerAccepted($discussion, $post, $actor));
+        } elseif ($previous) {
+            $this->events->dispatch(new AnswerUnaccepted($discussion, $previous, $actor));
+        }
+    }
+
+    /** Counters are UNSIGNED on MySQL: never subtract below zero. */
+    private function count(?int $userId, string $column, int $by): void
+    {
+        if (! $userId) {
+            return;
+        }
+        $query = $this->db->table('users')->where('id', $userId);
+        $by > 0 ? $query->increment($column, $by) : $query->where($column, '>', 0)->decrement($column, -$by);
+    }
+}
