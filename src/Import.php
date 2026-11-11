@@ -2,6 +2,7 @@
 
 namespace ErnestDefoe\Answers;
 
+use Carbon\Carbon;
 use Flarum\Discussion\Discussion;
 use Flarum\Post\Post;
 use Flarum\Settings\SettingsRepositoryInterface;
@@ -56,11 +57,16 @@ class Import
         }
 
         $accepted = 0;
+        // A re-run only takes best answers chosen since the last one: an acceptance taken back here since
+        // then (Best Answer's column still names it) stays taken back.
+        $since = $this->settings->get('ernestdefoe-answers.imported_at');
+        $started = Carbon::now();
         if ($this->hasBestAnswers()) {
             Discussion::query()
                 ->where('answers_question', true)
                 ->whereNull('answers_accepted_post_id')
                 ->whereNotNull('best_answer_post_id')
+                ->when($since, fn ($q) => $q->where('best_answer_set_at', '>', Carbon::parse($since)))
                 ->with('tags')
                 ->chunkById(200, function ($discussions) use (&$accepted) {
                     $posts = Post::query()->whereIn('id', $discussions->pluck('best_answer_post_id'))->get()->keyBy('id');
@@ -79,6 +85,8 @@ class Import
                     }
                 });
         }
+
+        $this->settings->set('ernestdefoe-answers.imported_at', $started->toDateTimeString());
 
         return [
             'tags' => count($tagIds),

@@ -70,6 +70,13 @@ class IntegrationsTest extends TestCase
         $this->assertSame(0, resolve(Import::class)->run()['accepted']);
         $this->assertSame(15, (int) $this->db()->table('answers_reputation')->where('user_id', 4)->value('points'));
 
+        // The asker takes the acceptance back in Answers; a later import doesn't put it back.
+        Carbon::setTestNow(Carbon::now()->addMinute());
+        $this->send($this->request('POST', '/api/answers/discussions/1/accept', ['authenticatedAs' => 2, 'json' => ['postId' => null]]));
+        $this->assertSame(0, resolve(Import::class)->run()['accepted']);
+        $this->assertNull($this->db()->table('discussions')->where('id', 1)->value('answers_accepted_post_id'));
+        Carbon::setTestNow();
+
         // The admin button does the same, admins only.
         $response = $this->send($this->request('POST', '/api/answers/import', ['authenticatedAs' => 2]));
         $this->assertSame(403, $response->getStatusCode());
