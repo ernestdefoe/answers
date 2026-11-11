@@ -87,15 +87,22 @@ class ReviewController implements RequestHandlerInterface
         $counts = (clone $query)->groupBy('answers_reviews.type')->select('answers_reviews.type')->selectRaw('count(*) as n')->pluck('n', 'type');
         $type = (string) ($request->getQueryParams()['type'] ?? '');
         $rows = (clone $query)->when(isset(Reviews::VERDICTS[$type]), fn ($q) => $q->where('answers_reviews.type', $type))
-            ->orderBy('answers_reviews.id')->limit(20)
+            // Fetch more than a page: the per-item check below can drop some (tag-scoped rights), and a page shouldn't come back short.
+            ->orderBy('answers_reviews.id')->limit(60)
             ->get(['answers_reviews.id', 'answers_reviews.type', 'answers_reviews.post_id', 'answers_reviews.content', 'answers_reviews.summary', 'answers_reviews.user_id', 'answers_reviews.created_at']);
 
         // Re-check each against the real rules (a moderator query is broad; tag permissions are per question).
         $posts = Post::query()->whereVisibleTo($actor)->whereIn('posts.id', $rows->pluck('post_id'))->with(['discussion.tags', 'user'])->get()->keyBy('id');
         $suggesters = User::query()->whereIn('id', $rows->pluck('user_id')->filter())->get()->keyBy('id');
 
+        $approvals = $this->db->table('answers_review_votes')->whereIn('review_id', $rows->pluck('id'))
+            ->groupBy('review_id')->select('review_id')->selectRaw('count(*) as n')->pluck('n', 'review_id');
+
         $items = [];
         foreach ($rows as $row) {
+            if (count($items) === 20) {
+                break;
+            }
             $post = $posts[$row->post_id] ?? null;
             if (! $post || ! $this->access->canReview($actor, $post->discussion)) {
                 continue;
@@ -109,7 +116,7 @@ class ReviewController implements RequestHandlerInterface
                 'suggester' => $row->type === 'suggested_edit' && isset($suggesters[$row->user_id]) ? ['username' => $suggesters[$row->user_id]->username, 'displayName' => $suggesters[$row->user_id]->display_name] : null,
                 'content' => $row->content,
                 'summary' => $row->summary,
-                'approvals' => (int) $this->db->table('answers_review_votes')->where('review_id', $row->id)->count(),
+                'approvals' => (int) ($approvals[$row->id] ?? 0),
                 'canImprove' => $row->type === 'suggested_edit' && $this->access->canEditOthers($actor, $post->discussion),
             ];
         }

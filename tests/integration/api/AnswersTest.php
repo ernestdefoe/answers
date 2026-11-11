@@ -422,6 +422,8 @@ class AnswersTest extends TestCase
 
         [, $body] = $this->api('POST', '/answers/reviews/'.$item['id'], 6, ['verdict' => 'approve']);
         $this->assertSame('open', $body['status']);
+        [, $queue] = $this->api('GET', '/answers/reviews', 7, [], ['type' => 'suggested_edit']);
+        $this->assertSame(1, $queue['items'][0]['approvals']);
         [, $body] = $this->api('POST', '/answers/reviews/'.$item['id'], 7, ['verdict' => 'approve']);
         $this->assertSame('approved', $body['status']);
 
