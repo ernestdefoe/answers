@@ -11,7 +11,7 @@ use ErnestDefoe\Answers\Settings;
 use Flarum\Discussion\Discussion;
 use Flarum\Discussion\Event\Deleting as DiscussionDeleting;
 use Flarum\Discussion\Event\Started;
-use Flarum\Foundation\ValidationException;
+use ErnestDefoe\Answers\Fail;
 use Flarum\Post\CommentPost;
 use Flarum\Post\Event\Deleted;
 use Flarum\Post\Event\Deleting;
@@ -74,7 +74,7 @@ class Lifecycle
 
         if ($parentId === null) {
             if ($discussion->answers_duplicate_of_id && $discussion->first_post_id) {
-                throw new ValidationException(['content' => 'closed_as_duplicate']);
+                throw Fail::on('content', 'closed_as_duplicate');
             }
 
             return;
@@ -83,12 +83,12 @@ class Lifecycle
         $parent = Post::query()->find($parentId);
         if (! $parent || $parent->discussion_id !== $discussion->id || $parent->answers_parent_id !== null
             || $parent->type !== 'comment' || $parent->hidden_at !== null || ! $parent->isVisibleTo($event->actor)) {
-            throw new ValidationException(['answersParentId' => 'invalid']);
+            throw Fail::on('answersParentId', 'invalid');
         }
 
         $source = (string) Arr::get($event->data, 'attributes.content', '');
         if (mb_strlen(trim($source)) > $this->settings->int('comment_length')) {
-            throw new ValidationException(['content' => 'comment_too_long']);
+            throw Fail::on('content', 'comment_too_long');
         }
     }
 

@@ -12,7 +12,7 @@ use ErnestDefoe\Answers\Revisions;
 use ErnestDefoe\Answers\Settings;
 use ErnestDefoe\Answers\Votes;
 use Flarum\Discussion\Discussion;
-use Flarum\Foundation\ValidationException;
+use ErnestDefoe\Answers\Fail;
 use Flarum\Http\RequestUtil;
 use Flarum\Post\CommentPost;
 use Flarum\Post\Post;
@@ -93,7 +93,7 @@ class ActionController implements RequestHandlerInterface
             }
             $post->setRelation('discussion', $discussion);
             if (! Question::isAnswer($post) || $post->hidden_at !== null) {
-                throw new ValidationException(['postId' => 'not_an_answer']);
+                throw Fail::on('postId', 'not_an_answer');
             }
         }
 
@@ -107,7 +107,7 @@ class ActionController implements RequestHandlerInterface
         $actor = RequestUtil::getActor($request);
         $discussion = Input::question($request, $actor);
         if ($refusal = $this->access->bountyRefusal($actor, $discussion)) {
-            throw $refusal === 'permission' ? new PermissionDeniedException() : new ValidationException(['bounty' => $refusal]);
+            throw $refusal === 'permission' ? new PermissionDeniedException() : Fail::on('bounty', $refusal);
         }
         $body = Input::body($request);
         $reason = in_array($body['reason'] ?? '', ['attention', 'current', 'reward'], true) ? $body['reason'] : 'attention';
@@ -129,7 +129,7 @@ class ActionController implements RequestHandlerInterface
 
         $original = Discussion::query()->whereVisibleTo($actor)->find((int) (Input::body($request)['duplicateOf'] ?? 0));
         if (! $original) {
-            throw new ValidationException(['duplicateOf' => 'not_found']);
+            throw Fail::on('duplicateOf', 'not_found');
         }
 
         $votes = $this->duplicates->vote($discussion, $original, $actor, $moderator);
@@ -161,11 +161,11 @@ class ActionController implements RequestHandlerInterface
         $body = Input::body($request);
         $content = Input::text($body['content'] ?? '', 63000);
         if ($content === '' || $content === trim((string) $post->content)) {
-            throw new ValidationException(['content' => 'unchanged']);
+            throw Fail::on('content', 'unchanged');
         }
         $id = $this->reviews->open('suggested_edit', $post, $actor->id, $content, Input::text($body['summary'] ?? '', 200) ?: null);
         if (! $id) {
-            throw new ValidationException(['content' => 'already_suggested']);
+            throw Fail::on('content', 'already_suggested');
         }
 
         return new JsonResponse(['id' => $id], 201);

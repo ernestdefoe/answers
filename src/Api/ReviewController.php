@@ -8,7 +8,7 @@ use ErnestDefoe\Answers\Reputation;
 use ErnestDefoe\Answers\Reviews;
 use ErnestDefoe\Answers\Settings;
 use Flarum\Discussion\Discussion;
-use Flarum\Foundation\ValidationException;
+use ErnestDefoe\Answers\Fail;
 use Flarum\Http\RequestUtil;
 use Flarum\Post\CommentPost;
 use Flarum\Post\Post;
@@ -125,7 +125,7 @@ class ReviewController implements RequestHandlerInterface
         $body = Input::body($request);
         $verdict = (string) ($body['verdict'] ?? '');
         if (! in_array($verdict, Reviews::VERDICTS[$item->type], true)) {
-            throw new ValidationException(['verdict' => 'invalid']);
+            throw Fail::on('verdict', 'invalid');
         }
         $content = isset($body['content']) ? Input::text($body['content'], 63000) : null;
         if ($content !== null && ($content === '' || ! $this->access->canEditOthers($actor, $post->discussion))) {

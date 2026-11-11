@@ -3,7 +3,6 @@
 namespace ErnestDefoe\Answers;
 
 use Carbon\Carbon;
-use Flarum\Foundation\ValidationException;
 use Flarum\Post\Post;
 use Flarum\User\User;
 use Illuminate\Contracts\Container\Container;
@@ -38,7 +37,7 @@ class Votes
         $isQuestion = $post->id === $discussion->first_post_id;
 
         if ($value < -1 || $value > 1 || ($isComment && $value < 0)) {
-            throw new ValidationException(['value' => 'invalid']);
+            throw Fail::on('value', 'invalid');
         }
 
         $old = (int) $this->db->table('answers_votes')->where('post_id', $post->id)->where('user_id', $actor->id)->value('value');

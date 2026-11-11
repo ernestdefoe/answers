@@ -7,7 +7,6 @@ use ErnestDefoe\Answers\Event\BountyAwarded;
 use ErnestDefoe\Answers\Event\BountyStarted;
 use ErnestDefoe\Answers\Notification\BountyAwardedBlueprint;
 use Flarum\Discussion\Discussion;
-use Flarum\Foundation\ValidationException;
 use Flarum\Notification\NotificationSyncer;
 use Flarum\Post\Post;
 use Flarum\User\User;
@@ -57,10 +56,10 @@ class Bounties
     public function start(Discussion $discussion, User $actor, int $amount, string $currency, string $reason): int
     {
         if (! in_array($amount, Settings::BOUNTY_AMOUNTS, true)) {
-            throw new ValidationException(['amount' => 'invalid']);
+            throw Fail::on('amount', 'invalid');
         }
         if (! in_array($currency, $this->currencies(), true)) {
-            throw new ValidationException(['currency' => 'invalid']);
+            throw Fail::on('currency', 'invalid');
         }
         $tagId = $this->tagFor($discussion);
 
@@ -70,18 +69,18 @@ class Bounties
             $claimed = $this->db->table('discussions')->where('id', $discussion->id)->where('answers_bounty', 0)
                 ->update(['answers_bounty' => $amount, 'answers_bounty_ends_at' => $ends]);
             if (! $claimed) {
-                throw new ValidationException(['bounty' => 'bounty_running']);
+                throw Fail::on('bounty', 'bounty_running');
             }
 
             if ($currency === 'money') {
                 $paid = $this->db->table('users')->where('id', $actor->id)->where('money', '>=', $amount)->decrement('money', $amount);
                 if (! $paid) {
-                    throw new ValidationException(['amount' => 'not_enough']);
+                    throw Fail::on('amount', 'not_enough');
                 }
                 $this->moneyChanged($actor->id);
             } else {
                 if (! $tagId || $this->reputation->best($actor, [$tagId]) < $amount) {
-                    throw new ValidationException(['amount' => 'not_enough']);
+                    throw Fail::on('amount', 'not_enough');
                 }
                 $this->reputation->give($actor->id, [$tagId], -$amount, 'bounty_offered', $discussion->id);
                 $this->reputation->forgetMemo($actor);

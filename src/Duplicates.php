@@ -5,7 +5,6 @@ namespace ErnestDefoe\Answers;
 use Carbon\Carbon;
 use ErnestDefoe\Answers\Event\QuestionClosedAsDuplicate;
 use Flarum\Discussion\Discussion;
-use Flarum\Foundation\ValidationException;
 use Flarum\User\User;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Database\ConnectionInterface;
@@ -33,7 +32,7 @@ class Duplicates
             $original = Discussion::query()->find($original->answers_duplicate_of_id) ?? $original;
         }
         if ($original->id === $discussion->id || ! Question::is($original)) {
-            throw new ValidationException(['duplicateOf' => 'invalid']);
+            throw Fail::on('duplicateOf', 'invalid');
         }
 
         if ($moderator) {

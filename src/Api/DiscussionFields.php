@@ -9,6 +9,7 @@ use Flarum\Api\Context;
 use Flarum\Api\Resource\DiscussionResource;
 use Flarum\Api\Schema;
 use Flarum\Discussion\Discussion;
+use Flarum\User\User;
 use Illuminate\Database\ConnectionInterface;
 
 /**
@@ -50,7 +51,7 @@ class DiscussionFields
                         'currency' => $bounty->currency,
                         'reason' => $bounty->reason,
                         'endsAt' => (new \DateTime($bounty->ends_at))->format(\DateTime::RFC3339),
-                        'startedBy' => $bounty->user_id ? $this->db->table('users')->where('id', $bounty->user_id)->value('display_name') ?? $this->db->table('users')->where('id', $bounty->user_id)->value('username') : null,
+                        'startedBy' => $bounty->user_id ? User::query()->find($bounty->user_id)?->display_name : null,
                     ];
                 }),
 
@@ -60,6 +61,8 @@ class DiscussionFields
                 ->get(fn (Discussion $d, Context $context) => $this->access->canEditOthers($context->getActor(), $d)),
             Schema\Boolean::make('canAnswersClose')->visible($page)
                 ->get(fn (Discussion $d, Context $context) => $this->access->canVoteToClose($context->getActor(), $d) || ($this->access->moderates($context->getActor(), $d) && ! $d->answers_duplicate_of_id)),
+            Schema\Boolean::make('canAnswersModerate')->visible($page)
+                ->get(fn (Discussion $d, Context $context) => $this->access->moderates($context->getActor(), $d)),
             Schema\Boolean::make('canAnswersReopen')->visible($page)
                 ->get(fn (Discussion $d, Context $context) => $d->answers_duplicate_of_id !== null && $this->access->moderates($context->getActor(), $d)),
             Schema\Attribute::make('answersBountyRefusal')->visible($page)

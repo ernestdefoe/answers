@@ -1,0 +1,929 @@
+// Answers. Every colour comes from Flarum 2's custom properties (light, dark and
+// any theme that sets them); the few state colours are mixed from them with a
+// fixed hue, never a light-only literal. Link rules are prefixed with
+// html:not(#x-hi) so a theme's own link colours (Bespoke: 0,3,1) can't win.
+
+.Answers-placeholder {
+  min-height: 48px;
+}
+.Answers-placeholder--Similar,
+.Answers-placeholder--Helpers {
+  min-height: 0;
+}
+
+// ---------- discussion list ----------
+.Answers-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 7px;
+  border-radius: 4px;
+  font-size: 11.5px;
+  font-weight: 700;
+  line-height: 1.6;
+  vertical-align: 1px;
+  margin-right: 6px;
+  background: var(--control-bg);
+  color: var(--control-color);
+}
+.Answers-state--unanswered {
+  background: color-mix(in srgb, #d99a00 18%, var(--body-bg));
+  color: color-mix(in srgb, #9a6b00 70%, var(--text-color));
+}
+.Answers-state--solved {
+  background: color-mix(in srgb, #24a36b 18%, var(--body-bg));
+  color: color-mix(in srgb, #1d7f53 75%, var(--text-color));
+}
+.Answers-state--duplicate {
+  color: var(--muted-color);
+}
+.Answers-state--bounty {
+  background: color-mix(in srgb, #2a6ec6 18%, var(--body-bg));
+  color: color-mix(in srgb, #2a6ec6 70%, var(--text-color));
+}
+
+.DiscussionListItem-stats .Answers-stat {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 52px;
+  padding: 3px 6px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  line-height: 1.15;
+  font-size: 11px;
+  color: var(--muted-color);
+  b {
+    font-size: 15px;
+    color: var(--text-color);
+  }
+}
+.DiscussionListItem-stats .Answers-stat--has {
+  border-color: color-mix(in srgb, #24a36b 60%, var(--body-bg));
+  color: color-mix(in srgb, #1d7f53 75%, var(--text-color));
+  b {
+    color: inherit;
+  }
+}
+.DiscussionListItem-stats .Answers-stat--solved {
+  background: color-mix(in srgb, #24a36b 85%, var(--body-bg));
+  border-color: transparent;
+  color: var(--body-bg);
+  b {
+    color: var(--body-bg);
+  }
+}
+.DiscussionListItem-stats {
+  gap: 4px;
+}
+@media @phone {
+  .DiscussionListItem-stats .Answers-stat--votes {
+    display: none;
+  }
+  .DiscussionListItem-stats .Answers-stat {
+    min-width: 46px;
+  }
+}
+
+// ---------- top helpers ----------
+.Answers-helpers.is-empty {
+  display: none;
+}
+.Answers-helpers {
+  border-radius: var(--border-radius, 8px);
+  background: var(--control-bg);
+  padding: 10px 12px;
+  margin-top: 16px;
+  min-width: 0;
+}
+.Answers-helpersTitle {
+  margin: 0 0 6px;
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted-color);
+}
+.Answers-helpersList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+html:not(#x-hi) .Answers-helper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  min-width: 0;
+  color: var(--text-color);
+  text-decoration: none;
+}
+.Answers-helper .Avatar {
+  --size: 24px;
+  width: 24px;
+  height: 24px;
+  font-size: 11px;
+  line-height: 24px;
+  flex: none;
+}
+.Answers-helperRank {
+  width: 14px;
+  text-align: right;
+  font-size: 12px;
+  color: var(--muted-color);
+  flex: none;
+}
+.Answers-helperName {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.Answers-helperPoints {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--muted-color);
+}
+// The sidebar card on wide screens, the strip above the list on phones.
+.Answers-helpers--strip {
+  display: none;
+}
+@media @phone {
+  .Answers-helpers--side {
+    display: none;
+  }
+  .Answers-helpers--strip:not(.is-empty) {
+    display: block;
+    margin: 0 0 12px;
+  }
+  .Answers-helpers--strip .Answers-helpersList {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+  }
+  .Answers-helpers--strip .Answers-helpersList li {
+    flex: none;
+  }
+  html:not(#x-hi) .Answers-helpers--strip .Answers-helper {
+    background: var(--body-bg);
+    border-radius: 999px;
+    padding: 3px 10px 3px 3px;
+  }
+  .Answers-helpers--strip .Answers-helperRank {
+    display: none;
+  }
+  .Answers-helpers--strip .Answers-helperName {
+    max-width: 140px;
+  }
+}
+
+// ---------- header + nav ----------
+.Answers-headerReview .Answers-headerCount {
+  margin-left: 4px;
+  font-weight: 700;
+}
+
+// ---------- the thread ----------
+.AnswersThread {
+  min-width: 0;
+}
+.AnswersPost {
+  display: flex;
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--control-bg);
+  min-width: 0;
+}
+.AnswersPost-main {
+  flex: 1;
+  min-width: 0;
+}
+.AnswersPost .Post {
+  padding-top: 10px;
+  padding-bottom: 6px;
+}
+.AnswersPost--accepted {
+  border-radius: 10px;
+  border-bottom: 0;
+  margin-bottom: 4px;
+  background: linear-gradient(90deg, color-mix(in srgb, #24a36b 12%, var(--body-bg)), var(--body-bg) 70%);
+}
+.AnswersPost.is-highlighted {
+  box-shadow: inset 3px 0 0 var(--primary-color);
+}
+
+.Answers-vote {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: 44px;
+  flex: none;
+  padding-top: 14px;
+}
+.Answers-voteButton {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--control-bg);
+  background: var(--body-bg);
+  color: var(--muted-color);
+  display: grid;
+  place-items: center;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0;
+  &:hover:not(:disabled) {
+    background: var(--control-bg);
+    color: var(--primary-color);
+  }
+  &.is-on {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+    color: var(--body-bg);
+  }
+  &:disabled {
+    cursor: default;
+    opacity: 0.55;
+  }
+  &:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+  }
+}
+.Answers-score {
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.6;
+  color: var(--text-color);
+}
+.Answers-accept {
+  margin-top: 6px;
+  border: 0;
+  background: none;
+  padding: 4px;
+  font-size: 22px;
+  color: var(--muted-color);
+  opacity: 0.6;
+  cursor: pointer;
+  &:hover:not(:disabled) {
+    opacity: 1;
+    color: color-mix(in srgb, #24a36b 85%, var(--text-color));
+  }
+  &.is-on {
+    opacity: 1;
+    color: color-mix(in srgb, #24a36b 85%, var(--text-color));
+  }
+  &.is-static {
+    cursor: default;
+  }
+  &:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+  }
+}
+
+.Answers-rep {
+  display: inline-block;
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 0 6px;
+  border-radius: 4px;
+  background: var(--control-bg);
+  color: var(--control-color);
+  line-height: 1.7;
+}
+.Answers-acceptedFlag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 1px 8px;
+  border-radius: 4px;
+  background: color-mix(in srgb, #24a36b 18%, var(--body-bg));
+  color: color-mix(in srgb, #1d7f53 75%, var(--text-color));
+}
+.Answers-revisionsLink {
+  border: 0;
+  background: none;
+  padding: 0;
+  font-size: 12.5px;
+  color: var(--muted-color);
+  cursor: pointer;
+  &:hover,
+  &:focus-visible {
+    color: var(--primary-color);
+  }
+}
+
+// Comments
+.Answers-comments {
+  margin: 0 0 8px var(--avatar-column-width, 64px);
+  border-top: 1px solid var(--control-bg);
+  &.is-empty {
+    border-top: 0;
+  }
+}
+.Answers-comment {
+  display: flex;
+  gap: 8px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--control-bg);
+  font-size: 13px;
+  color: var(--text-color);
+  &.is-hidden {
+    opacity: 0.6;
+  }
+}
+.Answers-commentVote {
+  width: 34px;
+  flex: none;
+  display: flex;
+  justify-content: flex-end;
+  align-items: flex-start;
+  gap: 2px;
+  color: var(--muted-color);
+}
+.Answers-commentScore {
+  font-weight: 700;
+}
+.Answers-commentUp {
+  border: 0;
+  background: none;
+  padding: 0 2px;
+  font-size: 11px;
+  color: var(--muted-color);
+  cursor: pointer;
+  &:hover,
+  &.is-on {
+    color: var(--primary-color);
+  }
+}
+.Answers-commentBody {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  p {
+    display: inline;
+    margin: 0;
+  }
+  p + p::before {
+    content: ' ';
+  }
+}
+.Answers-commentBy {
+  color: var(--muted-color);
+}
+html:not(#x-hi) .Answers-commentUser {
+  color: var(--primary-color);
+  font-weight: 600;
+}
+html:not(#x-hi) .Answers-commentTime {
+  color: var(--muted-color);
+}
+.Answers-commentDelete {
+  margin-left: 6px;
+}
+.Answers-commentsFoot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  padding: 7px 0 0 42px;
+}
+.Answers-comments.is-empty .Answers-commentsFoot {
+  padding-top: 0;
+}
+.Answers-linkButton {
+  border: 0;
+  background: none;
+  padding: 0;
+  font-size: 13px;
+  color: var(--muted-color);
+  cursor: pointer;
+  &:hover,
+  &:focus-visible {
+    color: var(--primary-color);
+  }
+}
+.Answers-commentForm {
+  padding: 8px 0 4px 42px;
+  textarea {
+    width: 100%;
+    resize: vertical;
+  }
+}
+.Answers-commentFormFoot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+.Answers-commentCount {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--muted-color);
+}
+
+.Answers-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 22px 0 4px;
+  flex-wrap: wrap;
+}
+.Answers-barTitle {
+  margin: 0;
+  flex: 1;
+  font-size: 17px;
+  color: var(--heading-color, var(--text-color));
+}
+.Answers-empty {
+  color: var(--muted-color);
+  padding: 14px 0;
+}
+.Answers-more {
+  text-align: center;
+  padding: 14px 0;
+}
+
+.Answers-notice,
+.Answers-bounty {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin: 10px 0;
+  font-size: 13.5px;
+  background: var(--control-bg);
+  color: var(--text-color);
+  .icon {
+    color: var(--muted-color);
+    margin-top: 3px;
+  }
+  ul {
+    margin: 4px 0 0;
+    padding-left: 18px;
+  }
+}
+html:not(#x-hi) .Answers-notice a {
+  color: var(--primary-color);
+  font-weight: 600;
+}
+.Answers-bounty {
+  align-items: center;
+  background: color-mix(in srgb, #2a6ec6 14%, var(--body-bg));
+}
+.Answers-bountyAmount {
+  flex: none;
+  font-weight: 800;
+  border-radius: 6px;
+  padding: 3px 9px;
+  background: color-mix(in srgb, #2a6ec6 85%, var(--text-color));
+  color: var(--body-bg);
+}
+.Answers-bountyText {
+  flex: 1;
+  min-width: 0;
+  strong {
+    color: var(--text-color);
+  }
+  span {
+    display: block;
+    font-size: 12.5px;
+    color: var(--muted-color);
+  }
+}
+
+.Answers-answerBox {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  margin-top: 18px;
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: text;
+  color: var(--muted-color);
+  .Avatar {
+    flex: none;
+  }
+  .Answers-answerBoxText {
+    flex: 1;
+    min-width: 0;
+    border: 1px dashed var(--muted-color);
+    border-radius: 8px;
+    padding: 12px 14px;
+  }
+  &:hover .Answers-answerBoxText,
+  &:focus-visible .Answers-answerBoxText {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+  }
+}
+.Answers-hint {
+  font-size: 13px;
+  color: var(--muted-color);
+  margin: 14px 0 0;
+}
+
+@media @phone {
+  .AnswersPost {
+    gap: 6px;
+  }
+  .Answers-vote {
+    width: 34px;
+    padding-top: 12px;
+  }
+  .Answers-voteButton {
+    width: 32px;
+    height: 32px;
+  }
+  .Answers-score {
+    font-size: 16px;
+  }
+  .Answers-comments {
+    margin-left: 0;
+  }
+  .Answers-commentsFoot,
+  .Answers-commentForm {
+    padding-left: 0;
+  }
+  .Answers-commentVote {
+    width: 26px;
+  }
+}
+
+// ---------- composer: similar questions under the title ----------
+.ComposerBody-header > li.item-answersSimilar {
+  display: block;
+  flex-basis: 100%;
+  width: 100%;
+  margin-right: 0;
+}
+.Answers-similar.is-empty {
+  display: none;
+}
+.Answers-similar {
+  background: var(--control-bg);
+  border-radius: 10px;
+  padding: 8px 12px;
+  margin: 6px 0 4px;
+  font-size: 13.5px;
+  color: var(--text-color);
+  ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 0;
+    border-top: 1px solid var(--body-bg);
+    min-width: 0;
+  }
+}
+html:not(#x-hi) .Answers-similar li a {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-color);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  &:hover,
+  &:focus-visible {
+    color: var(--primary-color);
+  }
+}
+.Answers-similarHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 2px;
+  strong {
+    color: var(--text-color);
+  }
+  .Answers-linkButton {
+    margin-left: auto;
+    font-size: 12.5px;
+  }
+}
+.Answers-similarCheck {
+  color: color-mix(in srgb, #24a36b 85%, var(--text-color));
+  flex: none;
+}
+.Answers-similarCount {
+  flex: none;
+  font-size: 12px;
+  color: var(--muted-color);
+}
+
+// ---------- modals ----------
+.Answers-segments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.Answers-segment {
+  border: 1px solid var(--control-bg);
+  border-radius: 6px;
+  padding: 7px 12px;
+  background: var(--body-bg);
+  color: var(--text-color);
+  font-weight: 600;
+  cursor: pointer;
+  &.is-on {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+    background: var(--control-bg);
+  }
+  &:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 1px;
+  }
+}
+.Answers-bountyModal fieldset,
+.Answers-bountyModal legend {
+  border: 0;
+  padding: 0;
+  margin-left: 0;
+}
+.Answers-bountyModal fieldset {
+  margin: 0 0 18px;
+}
+.Answers-bountyModal legend {
+  font-weight: bold;
+  margin-bottom: 6px;
+  color: var(--text-color);
+}
+
+.Answers-revision {
+  border: 1px solid var(--control-bg);
+  border-radius: 8px;
+  margin-bottom: 10px;
+}
+.Answers-revisionHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  padding: 8px 12px;
+  background: var(--control-bg);
+  border-radius: 8px 8px 0 0;
+  font-size: 13px;
+  color: var(--text-color);
+  .Button {
+    margin-left: auto;
+  }
+}
+.Answers-revisionNumber {
+  font-weight: 800;
+}
+.Answers-revisionSummary {
+  flex: 1;
+  min-width: 0;
+  color: var(--muted-color);
+}
+.Answers-revisionTime {
+  color: var(--muted-color);
+}
+.Answers-revisionBody {
+  padding: 10px 12px;
+  font-size: 13.5px;
+  color: var(--text-color);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  ins {
+    text-decoration: none;
+    border-radius: 3px;
+    background: color-mix(in srgb, #24a36b 25%, var(--body-bg));
+    color: var(--text-color);
+  }
+  del {
+    border-radius: 3px;
+    background: color-mix(in srgb, #d0453a 22%, var(--body-bg));
+    color: var(--text-color);
+  }
+}
+
+.Answers-closeResults {
+  list-style: none;
+  margin: 0 0 14px;
+  padding: 0;
+  max-height: 260px;
+  overflow-y: auto;
+}
+.Answers-closeResult {
+  width: 100%;
+  text-align: left;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: none;
+  padding: 7px 10px;
+  color: var(--text-color);
+  cursor: pointer;
+  &:hover {
+    background: var(--control-bg);
+  }
+  &.is-on {
+    border-color: var(--primary-color);
+    background: var(--control-bg);
+    color: var(--primary-color);
+    font-weight: 600;
+  }
+}
+.Answers-closeNone {
+  color: var(--muted-color);
+  padding: 7px 10px;
+}
+
+// ---------- review queue ----------
+.Answers-pageTitle {
+  margin: 0 0 12px;
+  color: var(--heading-color, var(--text-color));
+}
+.Answers-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--control-bg);
+  margin-bottom: 14px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.Answers-tab {
+  border: 0;
+  background: none;
+  padding: 9px 12px;
+  white-space: nowrap;
+  font-weight: 600;
+  color: var(--muted-color);
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  &.is-on {
+    color: var(--primary-color);
+    border-color: var(--primary-color);
+  }
+}
+.Answers-tabCount {
+  display: inline-block;
+  margin-left: 4px;
+  padding: 0 6px;
+  border-radius: 9px;
+  font-size: 11.5px;
+  background: var(--control-bg);
+  color: var(--control-color);
+}
+.Answers-reviewItem {
+  border: 1px solid var(--control-bg);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  min-width: 0;
+}
+.Answers-reviewHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  font-size: 13px;
+  color: var(--muted-color);
+  margin-bottom: 8px;
+  min-width: 0;
+}
+html:not(#x-hi) .Answers-reviewHead a {
+  color: var(--primary-color);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.Answers-reviewWhy {
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 4px;
+  background: color-mix(in srgb, #2a6ec6 16%, var(--body-bg));
+  color: color-mix(in srgb, #2a6ec6 70%, var(--text-color));
+}
+.Answers-reviewWhy--low_quality {
+  background: color-mix(in srgb, #d0453a 16%, var(--body-bg));
+  color: color-mix(in srgb, #b13a30 75%, var(--text-color));
+}
+.Answers-reviewBody {
+  font-size: 13.5px;
+  color: var(--text-color);
+  margin-bottom: 10px;
+  overflow-wrap: anywhere;
+  &.Answers-revisionBody {
+    padding: 0;
+  }
+}
+.Answers-reviewSummary {
+  color: var(--muted-color);
+  font-style: italic;
+  white-space: normal;
+}
+.Answers-reviewEdit {
+  width: 100%;
+  margin-bottom: 10px;
+}
+.Answers-reviewActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+// ---------- profile ----------
+.Answers-repCards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(~'min(150px, 100%)', 1fr));
+  gap: 10px;
+  margin-bottom: 18px;
+}
+html:not(#x-hi) .Answers-repCard {
+  display: block;
+  min-width: 0;
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: var(--control-bg);
+  color: var(--text-color);
+  text-decoration: none;
+  b {
+    display: block;
+    font-size: 20px;
+    color: var(--text-color);
+  }
+  span {
+    font-size: 12.5px;
+    color: var(--muted-color);
+    overflow-wrap: anywhere;
+  }
+}
+.Answers-repDot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 6px;
+  background: var(--tag-color);
+}
+.Answers-profileTitle {
+  margin: 0 0 6px;
+  font-size: 15px;
+  color: var(--heading-color, var(--text-color));
+}
+.Answers-repLog {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  li {
+    display: flex;
+    gap: 10px;
+    align-items: baseline;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--control-bg);
+    color: var(--text-color);
+    min-width: 0;
+  }
+}
+.Answers-repPoints {
+  width: 52px;
+  flex: none;
+  text-align: right;
+  font-weight: 800;
+  &.is-up {
+    color: color-mix(in srgb, #24a36b 85%, var(--text-color));
+  }
+  &.is-down {
+    color: color-mix(in srgb, #d0453a 85%, var(--text-color));
+  }
+}
+.Answers-repWhat {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+html:not(#x-hi) .Answers-repWhat a {
+  color: var(--primary-color);
+}
+.Answers-repWhen {
+  flex: none;
+  font-size: 12.5px;
+  color: var(--muted-color);
+}
+
+// Nothing to suggest: no empty row in the composer header (phones draw a border under each item).
+.ComposerBody-header > li.item-answersSimilar:has(> .is-empty),
+.ComposerBody-header > li.item-answersSimilar:has(> .Answers-placeholder) {
+  display: none;
+}
