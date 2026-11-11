@@ -804,4 +804,36 @@ class AnswersTest extends TestCase
         $this->assertSame('expired', $this->db()->table('answers_bounties')->value('status'));
         $this->assertSame(0, $this->rep(3));
     }
+
+    #[Test]
+    public function votes_and_accepts_take_locks_in_one_order_and_announce_reputation_after_commit(): void
+    {
+        $this->boot();
+        if ($this->driver() === 'sqlite') {
+            $this->markTestSkipped('SQLite has no row locks.');
+        }
+        $levels = [];
+        $baseline = $this->db()->transactionLevel();
+        resolve(\Illuminate\Contracts\Events\Dispatcher::class)->listen(\ErnestDefoe\Answers\Event\ReputationChanged::class,
+            function () use (&$levels) { $levels[] = $this->db()->transactionLevel(); });
+
+        $order = function (callable $request): array {
+            $this->db()->flushQueryLog();
+            $this->db()->enableQueryLog();
+            $request();
+            $log = array_column($this->db()->getQueryLog(), 'query');
+            $this->db()->disableQueryLog();
+            $locks = array_values(array_filter($log, fn ($q) => stripos($q, 'for update') !== false));
+
+            return array_map(fn ($q) => preg_match('/from [`"]\w*?(discussions|posts|answers_reputation)[`"]/', $q, $m) ? $m[1] : '?', $locks);
+        };
+
+        // A downvote touches the author's and the voter's reputation: discussion, then post, then those rows.
+        $this->assertSame(['discussions', 'posts', 'answers_reputation'], $order(fn () => $this->api('POST', '/answers/posts/2/vote', 4, ['value' => -1])));
+        // An accept: discussion first, then reputation (no post lock before the discussion).
+        $this->assertSame(['discussions', 'answers_reputation'], $order(fn () => $this->api('POST', '/answers/discussions/1/accept', 2, ['postId' => 3])));
+
+        $this->assertNotEmpty($levels);
+        $this->assertSame([$baseline], array_values(array_unique($levels)), 'every reputation event was announced after its transaction committed');
+    }
 }

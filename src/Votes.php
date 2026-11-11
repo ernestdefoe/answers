@@ -40,11 +40,13 @@ class Votes
             throw Fail::on('value', 'invalid');
         }
 
-        // One transaction, the post row locked first: concurrent votes on a post queue up, and each reads
-        // the vote it replaces only once it holds the lock, so N parallel requests can't each count the same
-        // change (or farm reputation by replaying it). Reputation and the Gamification mirror commit with it.
+        // One transaction, locks taken in the order every writer here uses (discussion → post → reputation rows
+        // by user id): concurrent votes on a post queue up, each reads the vote it replaces only under the lock
+        // (no replaying one change to farm reputation), and a vote can't deadlock against an accept. Deadlocks
+        // that slip through are retried; reputation events go out after the commit, the Gamification mirror too.
         try {
-            [$old, $score] = $this->db->transaction(function () use ($post, $actor, $value, $discussion, $isComment, $isQuestion) {
+            [$old, $score] = $this->reputation->transaction(function () use ($post, $actor, $value, $discussion, $isComment, $isQuestion) {
+                $this->db->table('discussions')->where('id', $discussion->id)->lockForUpdate()->value('id');
                 $score = (int) $this->db->table('posts')->where('id', $post->id)->lockForUpdate()->value('answers_score');
                 $old = (int) $this->db->table('answers_votes')->where('post_id', $post->id)->where('user_id', $actor->id)->value('value');
                 if ($old === $value) {
@@ -66,9 +68,10 @@ class Votes
                 }
 
                 if (! $isComment) {
+                    $tags = Question::tagIds($discussion);
+                    $this->reputation->lock([$post->user_id, $actor->id], $tags);
                     $this->undo($post, $actor, $old, $isQuestion);
-                    $this->apply($post, $actor, $value, $isQuestion, Question::tagIds($discussion));
-                    $this->mirror($post, $actor, $value);
+                    $this->apply($post, $actor, $value, $isQuestion, $tags);
                 }
 
                 return [$old, $score];
@@ -79,6 +82,9 @@ class Votes
         }
 
         $post->answers_score = $score;
+        if ($old !== $value && ! $isComment) {
+            $this->mirror($post, $actor, $value);
+        }
 
         if ($old !== $value && ! $isComment && ! $isQuestion && $value < 0 && $score <= $this->settings->int('low_quality_score')) {
             $this->reviews->open('low_quality', $post);

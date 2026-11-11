@@ -66,7 +66,7 @@ class Bounties
         }
         $tagId = $this->tagFor($discussion);
 
-        return $this->db->transaction(function () use ($discussion, $actor, $amount, $currency, $reason, $tagId) {
+        return $this->reputation->transaction(function () use ($discussion, $actor, $amount, $currency, $reason, $tagId) {
             // Claim the question first, so two bounties can't start at once.
             $ends = Carbon::now()->addDays(max(1, $this->settings->int('bounty_days')));
             $claimed = $this->db->table('discussions')->where('id', $discussion->id)->where('answers_bounty', 0)
@@ -171,7 +171,7 @@ class Bounties
             return;
         }
 
-        $paid = $this->db->transaction(function () use ($bounty, $post, $amount) {
+        $paid = $this->reputation->transaction(function () use ($bounty, $post, $amount) {
             if (! $this->close($bounty, 'awarded', $post, $amount)) {
                 return false;
             }
