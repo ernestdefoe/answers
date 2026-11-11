@@ -57,16 +57,21 @@ class Import
         }
 
         $accepted = 0;
-        // A re-run only takes best answers chosen since the last one: an acceptance taken back here since
-        // then (Best Answer's column still names it) stays taken back.
+        // A re-run only takes best answers chosen since the last one in the tags that run already imported:
+        // an acceptance taken back here since then (Best Answer's column still names it) stays taken back.
+        // Tags that became Q&A after that run are imported in full.
         $since = $this->settings->get('ernestdefoe-answers.imported_at');
+        $before = json_decode((string) $this->settings->get('ernestdefoe-answers.imported_tags', '[]'), true);
+        $before = is_array($before) ? array_map('intval', $before) : [];
         $started = Carbon::now();
         if ($this->hasBestAnswers()) {
             Discussion::query()
                 ->where('answers_question', true)
                 ->whereNull('answers_accepted_post_id')
                 ->whereNotNull('best_answer_post_id')
-                ->when($since, fn ($q) => $q->where('best_answer_set_at', '>', Carbon::parse($since)))
+                ->when($since, fn ($q) => $q->where(fn ($q) => $q
+                    ->where('best_answer_set_at', '>', Carbon::parse($since))
+                    ->orWhereNotIn('discussions.id', fn ($sub) => $sub->select('discussion_id')->from('discussion_tag')->whereIn('tag_id', $before ?: [0]))))
                 ->with('tags')
                 ->chunkById(200, function ($discussions) use (&$accepted) {
                     $posts = Post::query()->whereIn('id', $discussions->pluck('best_answer_post_id'))->get()->keyBy('id');
@@ -87,6 +92,7 @@ class Import
         }
 
         $this->settings->set('ernestdefoe-answers.imported_at', $started->toDateTimeString());
+        $this->settings->set('ernestdefoe-answers.imported_tags', json_encode(array_values(array_unique(array_merge($before, $tagIds)))));
 
         return [
             'tags' => count($tagIds),

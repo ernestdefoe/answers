@@ -75,6 +75,19 @@ class IntegrationsTest extends TestCase
         $this->send($this->request('POST', '/api/answers/discussions/1/accept', ['authenticatedAs' => 2, 'json' => ['postId' => null]]));
         $this->assertSame(0, resolve(Import::class)->run()['accepted']);
         $this->assertNull($this->db()->table('discussions')->where('id', 1)->value('answers_accepted_post_id'));
+
+        // A tag that becomes Q&A after that run: its old best answers are imported on the next one.
+        $this->db()->table('tags')->insert(['id' => 2, 'name' => 'Themes', 'slug' => 'themes', 'position' => 1, 'is_qna' => true]);
+        $this->db()->table('discussions')->insert(['id' => 2, 'title' => 'Old question', 'slug' => 'old-question', 'user_id' => 2, 'created_at' => Carbon::now()->subYear(), 'last_posted_at' => Carbon::now()->subYear(),
+            'comment_count' => 2, 'last_post_number' => 2, 'is_private' => false]);
+        $this->db()->table('discussion_tag')->insert(['discussion_id' => 2, 'tag_id' => 2]);
+        $this->db()->table('posts')->insert([
+            ['id' => 4, 'discussion_id' => 2, 'number' => 1, 'user_id' => 2, 'type' => 'comment', 'content' => '<t><p>Q</p></t>', 'created_at' => Carbon::now()->subYear(), 'is_private' => false],
+            ['id' => 5, 'discussion_id' => 2, 'number' => 2, 'user_id' => 3, 'type' => 'comment', 'content' => '<t><p>A</p></t>', 'created_at' => Carbon::now()->subYear(), 'is_private' => false],
+        ]);
+        $this->db()->table('discussions')->where('id', 2)->update(['first_post_id' => 4, 'best_answer_post_id' => 5, 'best_answer_user_id' => 2, 'best_answer_set_at' => Carbon::now()->subYear()]);
+        $this->assertSame(1, resolve(Import::class)->run()['accepted']);
+        $this->assertSame(5, (int) $this->db()->table('discussions')->where('id', 2)->value('answers_accepted_post_id'));
         Carbon::setTestNow();
 
         // The admin button does the same, admins only.
