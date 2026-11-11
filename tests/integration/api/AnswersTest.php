@@ -769,4 +769,17 @@ class AnswersTest extends TestCase
         $this->assertSame(0, (int) $this->db()->table('users')->where('id', 6)->value('comment_count'));
         $this->assertSame($before - 2, (int) $this->discussion(1)->comment_count);
     }
+
+    #[Test]
+    public function taking_a_vote_back_removes_that_voters_row(): void
+    {
+        $this->boot();
+        $this->api('POST', '/answers/posts/2/vote', 4, ['value' => 1]);
+        $this->api('POST', '/answers/posts/2/vote', 6, ['value' => 1]);
+        $this->api('POST', '/answers/posts/2/vote', 4, ['value' => 0]);
+
+        $rows = $this->db()->table('answers_reputation_log')->where('reason', 'upvote')->pluck('actor_id')->map(fn ($id) => (int) $id)->all();
+        $this->assertSame([6], $rows, 'the history keeps the vote that still stands');
+        $this->assertSame(10, $this->rep(3));
+    }
 }

@@ -27,7 +27,7 @@ class Forget
                 foreach ($votes as $vote) {
                     $this->db->table('posts')->where('id', $vote->post_id)->decrement('answers_score', (int) $vote->value);
                     if ($vote->answers_parent_id === null) {
-                        $this->reputation->takeBack($vote->user_id, $vote->value > 0 ? 'upvote' : 'downvote', $vote->discussion_id, $vote->post_id);
+                        $this->reputation->takeBack($vote->user_id, $vote->value > 0 ? 'upvote' : 'downvote', $vote->discussion_id, $vote->post_id, $user->id);
                     }
                 }
             });

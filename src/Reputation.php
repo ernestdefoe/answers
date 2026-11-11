@@ -26,7 +26,7 @@ class Reputation
     }
 
     /** @param int[] $tagIds */
-    public function give(?int $userId, array $tagIds, int $points, string $reason, ?int $discussionId = null, ?int $postId = null): void
+    public function give(?int $userId, array $tagIds, int $points, string $reason, ?int $discussionId = null, ?int $postId = null, ?int $actorId = null): void
     {
         if (! $userId || ! $points) {
             return;
@@ -35,7 +35,7 @@ class Reputation
         foreach ($tagIds as $tagId) {
             $this->db->table('answers_reputation_log')->insert([
                 'user_id' => $userId, 'tag_id' => $tagId, 'discussion_id' => $discussionId, 'post_id' => $postId,
-                'reason' => $reason, 'points' => $points, 'created_at' => Carbon::now(),
+                'reason' => $reason, 'points' => $points, 'created_at' => Carbon::now(), 'actor_id' => $actorId,
             ]);
             $this->bump($userId, $tagId, $points);
             $this->events->dispatch(new ReputationChanged($userId, $tagId, $points, $reason));
@@ -62,8 +62,8 @@ class Reputation
         return true;
     }
 
-    /** Take back one award: the newest matching row per tag. */
-    public function takeBack(?int $userId, string $reason, ?int $discussionId, ?int $postId): void
+    /** Take back one award per tag: the row this actor caused (a voter's own vote), else the newest matching one. */
+    public function takeBack(?int $userId, string $reason, ?int $discussionId, ?int $postId, ?int $actorId = null): void
     {
         if (! $userId) {
             return;
@@ -72,6 +72,7 @@ class Reputation
         $rows = $this->db->table('answers_reputation_log')
             ->where('user_id', $userId)->where('reason', $reason)
             ->where('discussion_id', $discussionId)->where('post_id', $postId)
+            ->when($actorId, fn ($q) => $q->orderByRaw('case when '.$this->db->getQueryGrammar()->wrap('actor_id').' = ? then 0 else 1 end', [$actorId]))
             ->orderByDesc('id')->get(['id', 'tag_id', 'points']);
 
         $done = [];

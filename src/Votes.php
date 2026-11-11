@@ -107,9 +107,9 @@ class Votes
     private function apply(Post $post, User $actor, int $value, bool $isQuestion, array $tags): void
     {
         if ($value > 0) {
-            $this->reputation->give($post->user_id, $tags, $this->settings->int($isQuestion ? 'points_question_up' : 'points_answer_up'), 'upvote', $post->discussion_id, $post->id);
+            $this->reputation->give($post->user_id, $tags, $this->settings->int($isQuestion ? 'points_question_up' : 'points_answer_up'), 'upvote', $post->discussion_id, $post->id, $actor->id);
         } elseif ($value < 0) {
-            $this->reputation->give($post->user_id, $tags, $this->settings->int('points_down'), 'downvote', $post->discussion_id, $post->id);
+            $this->reputation->give($post->user_id, $tags, $this->settings->int('points_down'), 'downvote', $post->discussion_id, $post->id, $actor->id);
             if (! $isQuestion) {
                 $this->reputation->give($actor->id, $tags, $this->settings->int('points_voter_down'), 'downvote_cast', $post->discussion_id, $post->id);
             }
@@ -119,9 +119,9 @@ class Votes
     private function undo(Post $post, User $actor, int $old, bool $isQuestion): void
     {
         if ($old > 0) {
-            $this->reputation->takeBack($post->user_id, 'upvote', $post->discussion_id, $post->id);
+            $this->reputation->takeBack($post->user_id, 'upvote', $post->discussion_id, $post->id, $actor->id);
         } elseif ($old < 0) {
-            $this->reputation->takeBack($post->user_id, 'downvote', $post->discussion_id, $post->id);
+            $this->reputation->takeBack($post->user_id, 'downvote', $post->discussion_id, $post->id, $actor->id);
             if (! $isQuestion) {
                 $this->reputation->takeBack($actor->id, 'downvote_cast', $post->discussion_id, $post->id);
             }
