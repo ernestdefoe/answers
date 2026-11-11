@@ -582,4 +582,32 @@ class AnswersTest extends TestCase
 
         $this->assertSame($before, [$count($thread), $count($list)]);
     }
+
+    private function driver(): string
+    {
+        return $this->db()->getDriverName();
+    }
+
+    #[Test]
+    public function a_vote_locks_its_post_and_reads_the_old_vote_under_the_lock(): void
+    {
+        $this->boot();
+        if ($this->driver() === 'sqlite') {
+            $this->markTestSkipped('SQLite has no row locks (it serialises writers instead).');
+        }
+        $this->api('POST', '/answers/posts/2/vote', 4, ['value' => -1]);
+        $this->db()->enableQueryLog();
+        $this->api('POST', '/answers/posts/2/vote', 4, ['value' => 1]);
+        $log = array_column($this->db()->getQueryLog(), 'query');
+
+        // The post row is locked before the old vote is read, and the reputation writes come after both.
+        $lock = array_keys(array_filter($log, fn ($q) => str_contains($q, 'answers_score') && stripos($q, 'for update') !== false));
+        $read = array_keys(array_filter($log, fn ($q) => str_starts_with($q, 'select') && str_contains($q, 'answers_votes')));
+        $rep = array_keys(array_filter($log, fn ($q) => str_contains($q, 'answers_reputation')));
+        $this->assertCount(1, $lock);
+        $this->assertLessThan($read[0], $lock[0]);
+        $this->assertLessThan(min($rep), $read[0]);
+        $this->assertSame(10, $this->rep(3));
+        $this->assertSame(0, $this->rep(4), 'the voter\'s downvote cost came back when the vote changed');
+    }
 }

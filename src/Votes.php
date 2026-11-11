@@ -40,13 +40,17 @@ class Votes
             throw Fail::on('value', 'invalid');
         }
 
-        $old = (int) $this->db->table('answers_votes')->where('post_id', $post->id)->where('user_id', $actor->id)->value('value');
-        if ($old === $value) {
-            return ['score' => (int) $post->answers_score, 'vote' => $value];
-        }
-
+        // One transaction, the post row locked first: concurrent votes on a post queue up, and each reads
+        // the vote it replaces only once it holds the lock, so N parallel requests can't each count the same
+        // change (or farm reputation by replaying it). Reputation and the Gamification mirror commit with it.
         try {
-            $this->db->transaction(function () use ($post, $actor, $value, $old) {
+            [$old, $score] = $this->db->transaction(function () use ($post, $actor, $value, $discussion, $isComment, $isQuestion) {
+                $score = (int) $this->db->table('posts')->where('id', $post->id)->lockForUpdate()->value('answers_score');
+                $old = (int) $this->db->table('answers_votes')->where('post_id', $post->id)->where('user_id', $actor->id)->value('value');
+                if ($old === $value) {
+                    return [$old, $score];
+                }
+
                 $rows = $this->db->table('answers_votes')->where('post_id', $post->id)->where('user_id', $actor->id);
                 if ($value === 0) {
                     $rows->delete();
@@ -55,29 +59,29 @@ class Votes
                 } else {
                     $rows->update(['value' => $value]);
                 }
-                $this->db->table('posts')->where('id', $post->id)->increment('answers_score', $value - $old);
+                $score += $value - $old;
+                $this->db->table('posts')->where('id', $post->id)->update(['answers_score' => $score]);
+                if ($isQuestion) {
+                    $this->db->table('discussions')->where('id', $discussion->id)->update(['answers_score' => $score]);
+                }
+
+                if (! $isComment) {
+                    $this->undo($post, $actor, $old, $isQuestion);
+                    $this->apply($post, $actor, $value, $isQuestion, Question::tagIds($discussion));
+                    $this->mirror($post, $actor, $value);
+                }
+
+                return [$old, $score];
             });
         } catch (UniqueConstraintViolationException) {
-            // A double click raced itself; the first one counted.
+            // Only reachable without row locks (SQLite): the first of two identical clicks counted.
             return ['score' => (int) $this->db->table('posts')->where('id', $post->id)->value('answers_score'), 'vote' => $value];
         }
 
-        $score = (int) $this->db->table('posts')->where('id', $post->id)->value('answers_score');
         $post->answers_score = $score;
 
-        if ($isQuestion) {
-            $this->db->table('discussions')->where('id', $discussion->id)->update(['answers_score' => $score]);
-        }
-
-        if (! $isComment) {
-            $tags = Question::tagIds($discussion);
-            $this->undo($post, $actor, $old, $isQuestion);
-            $this->apply($post, $actor, $value, $isQuestion, $tags);
-            $this->mirror($post, $actor, $value);
-
-            if (! $isQuestion && $value < 0 && $score <= $this->settings->int('low_quality_score')) {
-                $this->reviews->open('low_quality', $post);
-            }
+        if ($old !== $value && ! $isComment && ! $isQuestion && $value < 0 && $score <= $this->settings->int('low_quality_score')) {
+            $this->reviews->open('low_quality', $post);
         }
 
         return ['score' => $score, 'vote' => $value];
