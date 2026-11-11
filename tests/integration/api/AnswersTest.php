@@ -692,4 +692,29 @@ class AnswersTest extends TestCase
         $this->assertSame('expired', $this->db()->table('answers_bounties')->where('id', $open)->value('status'));
         $this->assertSame(Question::SOLVED, (int) $this->discussion(1)->answers_state);
     }
+
+    #[Test]
+    public function a_duplicate_never_points_into_a_cycle_or_at_a_question_the_asker_cant_see(): void
+    {
+        $this->boot();
+        $new = function (string $title) {
+            [, $body] = $this->api('POST', '/discussions', 4, ['data' => ['type' => 'discussions', 'attributes' => ['title' => $title, 'content' => 'Details of '.$title],
+                'relationships' => ['tags' => ['data' => [['type' => 'tags', 'id' => '1']]]]]]);
+
+            return (int) $body['data']['id'];
+        };
+        [$a, $b, $c] = [$new('Question A about hooks'), $new('Question B about hooks'), $new('Question C about hooks')];
+        $close = fn (int $d, int $of) => $this->api('POST', "/answers/discussions/$d/close", 5, ['duplicateOf' => $of])[0];
+
+        $this->assertSame(200, $close($b, $c));
+        $this->assertSame(200, $close($a, $b));
+        // C as a duplicate of A: A → B → C, which is C itself.
+        $this->assertSame(422, $close($c, $a));
+        $this->assertNull($this->discussion($c)->answers_duplicate_of_id);
+
+        // A hidden original: the moderator sees it, the asker doesn't.
+        $this->db()->table('discussions')->where('id', 1)->update(['hidden_at' => Carbon::now(), 'hidden_user_id' => 5]);
+        $this->assertSame(422, $close(3, 1));
+        $this->assertNull($this->discussion(3)->answers_duplicate_of_id);
+    }
 }

@@ -27,13 +27,7 @@ class Duplicates
     /** @return int votes so far for that original (0 once it is closed). */
     public function vote(Discussion $discussion, Discussion $original, User $actor, bool $moderator): int
     {
-        // Point at the root: a duplicate of a duplicate is a duplicate of its original.
-        if ($original->answers_duplicate_of_id) {
-            $original = Discussion::query()->find($original->answers_duplicate_of_id) ?? $original;
-        }
-        if ($original->id === $discussion->id || ! Question::is($original)) {
-            throw Fail::on('duplicateOf', 'invalid');
-        }
+        $original = $this->root($discussion, $original, $actor);
 
         if ($moderator) {
             $this->close($discussion, $original, $actor);
@@ -54,6 +48,38 @@ class Duplicates
         }
 
         return $votes;
+    }
+
+    /**
+     * Point at the root: a duplicate of a duplicate is a duplicate of its original, however long the chain.
+     * The walk refuses a chain that leads back to this question (a cycle), and the root must be a question
+     * both the closer and the asker can see, so a duplicate never points at a private or hidden discussion.
+     */
+    private function root(Discussion $discussion, Discussion $original, User $actor): Discussion
+    {
+        $seen = [$discussion->id => true];
+        while (true) {
+            if (isset($seen[$original->id])) {
+                throw Fail::on('duplicateOf', 'invalid');
+            }
+            $seen[$original->id] = true;
+            if (! $original->answers_duplicate_of_id) {
+                break;
+            }
+            $next = Discussion::query()->find($original->answers_duplicate_of_id);
+            if (! $next) {
+                break;
+            }
+            $original = $next;
+        }
+
+        $asker = $discussion->user;
+        $visible = fn (?User $user) => $user === null || Discussion::query()->whereVisibleTo($user)->whereKey($original->id)->exists();
+        if (! Question::is($original) || ! $visible($actor) || ! $visible($asker)) {
+            throw Fail::on('duplicateOf', 'invalid');
+        }
+
+        return $original;
     }
 
     public function reopen(Discussion $discussion): void
