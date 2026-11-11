@@ -35,11 +35,11 @@ const number = (setting: string, key: string, min: number, max: number, priority
     priority
   );
 
-// The Q&A switch in each tag's edit dialog (Tags page).
-extend('flarum/tags/admin/components/EditTagModal', 'oninit', function (this: any) {
+// The Q&A switch in each tag's edit dialog (Tags page). An extension's module needs the `ext:` prefix: a bare 'flarum/tags/…' resolves to core and never loads.
+extend('ext:flarum/tags/admin/components/EditTagModal', 'oninit', function (this: any) {
   this.answersEnabled = Stream(!!this.tag.attribute('answersEnabled'));
 });
-extend('flarum/tags/admin/components/EditTagModal', 'fields', function (this: any, items: ItemList<Mithril.Children>) {
+extend('ext:flarum/tags/admin/components/EditTagModal', 'fields', function (this: any, items: ItemList<Mithril.Children>) {
   items.add(
     'answers',
     <div className="Form-group">
@@ -54,7 +54,7 @@ extend('flarum/tags/admin/components/EditTagModal', 'fields', function (this: an
     9
   );
 });
-extend('flarum/tags/admin/components/EditTagModal', 'submitData', function (this: any, data: Record<string, unknown>) {
+extend('ext:flarum/tags/admin/components/EditTagModal', 'submitData', function (this: any, data: Record<string, unknown>) {
   data.answersEnabled = this.answersEnabled();
 });
 
