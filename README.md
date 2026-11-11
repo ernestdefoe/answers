@@ -2,6 +2,8 @@
 
 Stack Overflow–style questions and answers for any Flarum 2 tag. Free and MIT.
 
+![A question with its accepted answer, comments and votes](screenshots/01-question.png)
+
 Turn a tag into Q&A and its discussions become questions:
 
 - **Answers sorted by votes**, the accepted answer pinned on top, and a short **comment thread** under each answer, so answers stay answers.
@@ -11,6 +13,14 @@ Turn a tag into Q&A and its discussions become questions:
 - **Bounties** in reputation, or in Money when antoinefr/money is installed. The accepted answer gets it; when time runs out, the top-voted answer posted during the bounty with 2+ votes gets half.
 - **Community editing**: trusted members improve answers, everyone else can suggest an edit. Every change is kept, with word-level diffs and roll back.
 - **Review queue** for low-quality answers, a member's first answer and suggested edits.
+
+![A Q&A tag: states, votes, answer counts and top helpers](screenshots/02-tag.png)
+
+![Similar solved questions while you type a title](screenshots/03-ask.png)
+
+![A reputation bounty on an unanswered question](screenshots/04-bounty.png)
+
+![The review queue: a suggested edit with its word-level diff](screenshots/05-review.png)
 
 ## Install
 
