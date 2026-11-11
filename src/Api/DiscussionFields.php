@@ -10,7 +10,6 @@ use Flarum\Api\Resource\DiscussionResource;
 use Flarum\Api\Schema;
 use Flarum\Discussion\Discussion;
 use Flarum\User\User;
-use Illuminate\Database\ConnectionInterface;
 
 /**
  * A question's state, counts and bounty: columns, so a list of 20 costs
@@ -19,7 +18,7 @@ use Illuminate\Database\ConnectionInterface;
  */
 class DiscussionFields
 {
-    public function __construct(private readonly Access $access, private readonly Bounties $bounties, private readonly ConnectionInterface $db)
+    public function __construct(private readonly Access $access, private readonly Bounties $bounties)
     {
     }
 
