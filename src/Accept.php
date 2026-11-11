@@ -33,42 +33,54 @@ class Accept
     /** $quiet: no alerts, events or bounty (the Best Answer import). */
     public function set(Discussion $discussion, ?Post $post, User $actor, bool $quiet = false): void
     {
-        $previous = $discussion->answers_accepted_post_id ? Post::query()->find($discussion->answers_accepted_post_id) : null;
-        if ($previous?->id === $post?->id) {
+        // The discussion row is locked and the current acceptance read under the lock, so two accepts at once
+        // (two tabs, the asker and a moderator) run one after the other: the second takes back the first's points.
+        $previous = $this->db->transaction(function () use ($discussion, $post) {
+            $currentId = $this->db->table('discussions')->where('id', $discussion->id)->lockForUpdate()->value('answers_accepted_post_id');
+            $previous = $currentId ? Post::query()->find($currentId) : null;
+            if ($previous?->id === $post?->id) {
+                $discussion->answers_accepted_post_id = $post?->id;
+
+                return false;
+            }
+            $tags = Question::tagIds($discussion);
+
+            if ($previous) {
+                $this->reputation->takeBack($previous->user_id, 'accepted', $discussion->id, $previous->id);
+                $this->reputation->takeBack($discussion->user_id, 'accepter', $discussion->id, $previous->id);
+                $this->count($previous->user_id, 'answers_accepted_count', -1);
+            }
+
+            $this->db->table('discussions')->where('id', $discussion->id)->update(['answers_accepted_post_id' => $post?->id]);
+            $discussion->answers_accepted_post_id = $post?->id;
+
+            if ($post) {
+                if ($post->user_id !== $discussion->user_id) {
+                    $this->reputation->give($post->user_id, $tags, $this->settings->int('points_accepted'), 'accepted', $discussion->id, $post->id);
+                    $this->reputation->give($discussion->user_id, $tags, $this->settings->int('points_accepter'), 'accepter', $discussion->id, $post->id);
+                }
+                $this->count($post->user_id, 'answers_accepted_count', 1);
+            }
+
+            // The asker's "solved" count moves only when the question changes between solved and not.
+            if (! $previous && $post) {
+                $this->count($discussion->user_id, 'answers_solved_count', 1);
+            } elseif ($previous && ! $post) {
+                $this->count($discussion->user_id, 'answers_solved_count', -1);
+            }
+
+            $this->questions->recount($discussion->id);
+
+            return $previous;
+        });
+        if ($previous === false) {
             return;
         }
-
-        $tags = Question::tagIds($discussion);
-
-        if ($previous) {
-            $this->reputation->takeBack($previous->user_id, 'accepted', $discussion->id, $previous->id);
-            $this->reputation->takeBack($discussion->user_id, 'accepter', $discussion->id, $previous->id);
-            $this->count($previous->user_id, 'answers_accepted_count', -1);
-            if (! $quiet) {
-                $this->notifications->delete(new AnswerAcceptedBlueprint($previous, $actor));
-            }
-        }
-
-        $this->db->table('discussions')->where('id', $discussion->id)->update(['answers_accepted_post_id' => $post?->id]);
-        $discussion->answers_accepted_post_id = $post?->id;
-
-        if ($post) {
-            if ($post->user_id !== $discussion->user_id) {
-                $this->reputation->give($post->user_id, $tags, $this->settings->int('points_accepted'), 'accepted', $discussion->id, $post->id);
-                $this->reputation->give($discussion->user_id, $tags, $this->settings->int('points_accepter'), 'accepter', $discussion->id, $post->id);
-            }
-            $this->count($post->user_id, 'answers_accepted_count', 1);
-        }
-
-        // The asker's "solved" count moves only when the question changes between solved and not.
-        if (! $previous && $post) {
-            $this->count($discussion->user_id, 'answers_solved_count', 1);
-        } elseif ($previous && ! $post) {
-            $this->count($discussion->user_id, 'answers_solved_count', -1);
-        }
-
-        $this->questions->recount($discussion->id);
         $discussion->answers_state = (int) $this->db->table('discussions')->where('id', $discussion->id)->value('answers_state');
+
+        if ($previous && ! $quiet) {
+            $this->notifications->delete(new AnswerAcceptedBlueprint($previous, $actor));
+        }
 
         if ($quiet) {
             return;

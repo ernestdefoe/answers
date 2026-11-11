@@ -628,4 +628,20 @@ class AnswersTest extends TestCase
         $this->assertSame(100, $this->rep(4), 'paid once');
         $this->assertSame(1, $this->db()->table('answers_reputation_log')->where('reason', 'bounty')->count());
     }
+
+    #[Test]
+    public function an_accept_reads_the_current_acceptance_under_a_lock_not_from_a_stale_copy(): void
+    {
+        $this->boot();
+        // A second request still holding the question as it was before the first accept.
+        $stale = Discussion::query()->with('tags')->find(1);
+        $this->api('POST', '/answers/discussions/1/accept', 2, ['postId' => 2]);
+
+        resolve(\ErnestDefoe\Answers\Accept::class)->set($stale, Post::query()->find(3), User::query()->find(2));
+
+        $this->assertSame(0, $this->rep(3), 'the first acceptance was taken back');
+        $this->assertSame(15, $this->rep(4));
+        $this->assertSame(0, (int) $this->db()->table('users')->where('id', 3)->value('answers_accepted_count'));
+        $this->assertSame(1, (int) $this->db()->table('users')->where('id', 2)->value('answers_solved_count'));
+    }
 }
