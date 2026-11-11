@@ -29,10 +29,10 @@ class Split
         /** @var Discussion $new */
         $new = $event->newDiscussion;
 
-        $moved = $this->db->table('posts')->where('discussion_id', $new->id)->pluck('id')->all();
+        $moved = $this->db->table('posts')->where('discussion_id', $new->id)->pluck('id')->map(fn ($id) => (int) $id)->all();
 
         // Left behind under an answer that moved: they go with it, and the new discussion is renumbered.
-        $behind = $this->db->table('posts')->where('discussion_id', $original->id)->whereIn('answers_parent_id', $moved ?: [0])->pluck('id')->all();
+        $behind = $this->db->table('posts')->where('discussion_id', $original->id)->whereIn('answers_parent_id', $moved ?: [0])->pluck('id')->map(fn ($id) => (int) $id)->all();
         if ($behind) {
             $this->db->table('posts')->whereIn('id', $behind)->update(['discussion_id' => $new->id]);
             $this->renumber($new->id);
@@ -46,14 +46,22 @@ class Split
         $this->db->table('posts')->where('id', $new->first_post_id)->update(['answers_parent_id' => null]);
 
         $original = Discussion::query()->with('tags')->find($original->id);
-        if ($original && in_array($original->answers_accepted_post_id, $moved, true)) {
+        if ($original && in_array((int) $original->answers_accepted_post_id, $moved, true)) {
             $this->accept->set($original, null, $event->actor, true);
+        }
+
+        // What the moved posts earned, and their review items, now belong to the new discussion (an un-vote
+        // there looks its reputation up by the post's discussion). After the unaccept above took its points back.
+        if ($moved) {
+            $this->db->table('answers_reputation_log')->whereIn('post_id', $moved)->update(['discussion_id' => $new->id]);
+            $this->db->table('answers_reviews')->whereIn('post_id', $moved)->update(['discussion_id' => $new->id]);
         }
 
         foreach ([$original, Discussion::query()->find($new->id)] as $discussion) {
             if ($discussion) {
                 $discussion->refreshCommentCount();
                 $discussion->refreshLastPost();
+                $discussion->refreshParticipantCount();
                 $discussion->save();
             }
         }

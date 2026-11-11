@@ -176,6 +176,8 @@ class IntegrationsTest extends TestCase
         $comment = (int) json_decode((string) $response->getBody(), true)['data']['id'];
         $this->send($this->request('POST', '/api/answers/discussions/1/accept', ['authenticatedAs' => 2, 'json' => ['postId' => 3]]));
         $this->assertSame(Question::SOLVED, (int) $this->db()->table('discussions')->where('id', 1)->value('answers_state'));
+        $this->send($this->request('POST', '/api/answers/posts/3/vote', ['authenticatedAs' => 3, 'json' => ['value' => 1]]));
+        $this->assertSame(25, (int) $this->db()->table('answers_reputation')->where('user_id', 4)->value('points'));
 
         $response = $this->send($this->request('POST', '/api/split', ['authenticatedAs' => 1, 'json' => ['title' => 'Split off', 'start_post_id' => 3, 'end_post_number' => 3]]));
         $this->assertLessThan(300, $response->getStatusCode(), (string) $response->getBody());
@@ -185,5 +187,12 @@ class IntegrationsTest extends TestCase
         $this->assertSame($new, (int) $this->db()->table('posts')->where('id', $comment)->value('discussion_id'), 'the comment followed its answer');
         $this->assertNull($this->db()->table('discussions')->where('id', 1)->value('answers_accepted_post_id'));
         $this->assertSame(Question::ANSWERED, (int) $this->db()->table('discussions')->where('id', 1)->value('answers_state'));
+
+        // Un-voting the moved answer takes back what the vote gave (only the vote is left after the unaccept).
+        $this->assertSame(10, (int) $this->db()->table('answers_reputation')->where('user_id', 4)->value('points'));
+        $this->send($this->request('POST', '/api/answers/posts/3/vote', ['authenticatedAs' => 3, 'json' => ['value' => 0]]));
+        $this->assertSame(0, (int) $this->db()->table('answers_reputation')->where('user_id', 4)->value('points'));
+        // The original lost the comment's author as a participant (only the asker and answer 2's author are left).
+        $this->assertSame(2, (int) $this->db()->table('discussions')->where('id', 1)->value('participant_count'));
     }
 }
