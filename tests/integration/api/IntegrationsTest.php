@@ -152,4 +152,31 @@ class IntegrationsTest extends TestCase
         $this->assertGreaterThan(0, $this->db()->table('answers_reviews')->where('post_id', $id)->count());
         $this->assertSame(3, (int) $this->db()->table('discussions')->where('id', 1)->value('answers_count'));
     }
+
+    #[Test]
+    public function a_split_moves_comments_with_their_answer_and_unsolves_the_question(): void
+    {
+        $this->extension('flarum-tags', 'fof-split', 'ernestdefoe-answers');
+        $this->extend((new \Flarum\Extend\ThrottleApi())->remove('postTimeout'));
+        $this->seed();
+        $this->app();
+        $this->db()->table('tags')->where('id', 1)->update(['answers_enabled' => true]);
+        resolve(Question::class)->refreshFlags([1]);
+
+        // A comment under answer 3, posted later (so it's outside a split of post 3 alone), then accept 3.
+        $response = $this->send($this->request('POST', '/api/posts', ['authenticatedAs' => 2, 'json' => ['data' => ['type' => 'posts',
+            'attributes' => ['content' => 'Thanks, that worked', 'answersParentId' => 3], 'relationships' => ['discussion' => ['data' => ['type' => 'discussions', 'id' => '1']]]]]]));
+        $comment = (int) json_decode((string) $response->getBody(), true)['data']['id'];
+        $this->send($this->request('POST', '/api/answers/discussions/1/accept', ['authenticatedAs' => 2, 'json' => ['postId' => 3]]));
+        $this->assertSame(Question::SOLVED, (int) $this->db()->table('discussions')->where('id', 1)->value('answers_state'));
+
+        $response = $this->send($this->request('POST', '/api/split', ['authenticatedAs' => 1, 'json' => ['title' => 'Split off', 'start_post_id' => 3, 'end_post_number' => 3]]));
+        $this->assertLessThan(300, $response->getStatusCode(), (string) $response->getBody());
+
+        $new = (int) $this->db()->table('posts')->where('id', 3)->value('discussion_id');
+        $this->assertNotSame(1, $new);
+        $this->assertSame($new, (int) $this->db()->table('posts')->where('id', $comment)->value('discussion_id'), 'the comment followed its answer');
+        $this->assertNull($this->db()->table('discussions')->where('id', 1)->value('answers_accepted_post_id'));
+        $this->assertSame(Question::ANSWERED, (int) $this->db()->table('discussions')->where('id', 1)->value('answers_state'));
+    }
 }

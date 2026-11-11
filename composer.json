@@ -59,7 +59,9 @@
                 "fof/gamification",
                 "antoinefr/flarum-ext-money",
                 "fof/follow-tags",
-                "flarum/gdpr"
+                "flarum/gdpr",
+                "flarum/approval",
+                "fof/split"
             ]
         }
     },

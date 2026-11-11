@@ -753,4 +753,20 @@ class AnswersTest extends TestCase
         $this->assertStringContainsString('rewrote this answer completely', (string) $this->db()->table('posts')->where('id', 2)->value('content'));
         $this->assertStringNotContainsString('Suggested addition', (string) $this->db()->table('posts')->where('id', 2)->value('content'));
     }
+
+    #[Test]
+    public function deleting_an_answer_deletes_its_comments_through_flarum(): void
+    {
+        $this->boot();
+        [, $c] = $this->reply(6, 1, 'A comment under answer two.', 2);
+        $this->assertSame(1, (int) $this->db()->table('users')->where('id', 6)->value('comment_count'));
+        $before = (int) $this->discussion(1)->comment_count;
+
+        [$status] = $this->api('DELETE', '/posts/2', 1);
+        $this->assertSame(204, $status);
+        $this->assertNull($this->db()->table('posts')->where('id', $c['data']['id'])->first());
+        // Flarum heard about the comment's deletion: its author's and the discussion's counts went down.
+        $this->assertSame(0, (int) $this->db()->table('users')->where('id', 6)->value('comment_count'));
+        $this->assertSame($before - 2, (int) $this->discussion(1)->comment_count);
+    }
 }

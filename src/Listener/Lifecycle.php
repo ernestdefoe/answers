@@ -42,7 +42,8 @@ class Lifecycle
         private readonly Reviews $reviews,
         private readonly Votes $votes,
         private readonly Settings $settings,
-        private readonly ConnectionInterface $db
+        private readonly ConnectionInterface $db,
+        private readonly Dispatcher $events
     ) {
     }
 
@@ -180,6 +181,18 @@ class Lifecycle
             $this->accept->set($discussion, null, $event->actor);
         }
         $this->reputation->forget(null, $post->id);
+
+        // Its comments go first, through Flarum, so counts, search and other extensions hear about each one
+        // (the foreign key's cascade is only the last resort for a delete made outside Flarum).
+        if ($post->answers_parent_id === null) {
+            foreach (CommentPost::query()->where('answers_parent_id', $post->id)->get() as $comment) {
+                $this->events->dispatch(new Deleting($comment, $event->actor, []));
+                $comment->delete();
+                foreach ($comment->releaseEvents() as $raised) {
+                    $this->events->dispatch($raised);
+                }
+            }
+        }
     }
 
     public function discussionDeleting(DiscussionDeleting $event): void

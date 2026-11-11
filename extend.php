@@ -24,6 +24,7 @@ use ErnestDefoe\Answers\Api;
 use ErnestDefoe\Answers\Console;
 use ErnestDefoe\Answers\Forget;
 use ErnestDefoe\Answers\Gdpr\AnswersData;
+use ErnestDefoe\Answers\Integration;
 use ErnestDefoe\Answers\Listener\Lifecycle;
 use ErnestDefoe\Answers\Notification;
 use ErnestDefoe\Answers\Policy\PostPolicy;
@@ -192,6 +193,9 @@ return [
     (new Extend\Conditional())
         ->whenExtensionEnabled('flarum-gdpr', fn () => [
             (new UserData())->addType(AnswersData::class),
+        ])
+        ->whenExtensionEnabled('fof-split', fn () => [
+            (new Extend\Event())->listen('FoF\Split\Events\DiscussionWasSplit', [Integration\Split::class, 'handle']),
         ])
         ->whenExtensionEnabled('flarum-approval', fn () => [
             (new Extend\Event())->listen('Flarum\Approval\Event\PostWasApproved', fn ($event) => resolve(Lifecycle::class)->approved($event->post)),
