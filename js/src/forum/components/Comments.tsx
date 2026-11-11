@@ -55,7 +55,6 @@ export default class Comments extends Component<Attrs> {
               placeholder={t('comments.placeholder')}
               aria-label={t('comments.placeholder')}
               oninput={(e: InputEvent) => (this.text = (e.target as HTMLTextAreaElement).value)}
-              oncreate={(vnode: Mithril.VnodeDOM) => (vnode.dom as HTMLTextAreaElement).focus()}
             />
             <div className="Answers-commentFormFoot">
               <span className="Answers-commentCount">{t('comments.left', { count: max - this.text.length })}</span>
@@ -140,6 +139,9 @@ export default class Comments extends Component<Attrs> {
       return;
     }
     this.writing = true;
+    // Draw now and focus inside the tap: iOS Safari only raises the keyboard for a focus made during the tap itself.
+    m.redraw.sync();
+    (this.element?.querySelector('.Answers-commentForm textarea') as HTMLTextAreaElement | null)?.focus();
   }
 
   submit(e: SubmitEvent) {
