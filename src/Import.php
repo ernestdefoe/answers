@@ -22,11 +22,18 @@ class Import
         private readonly ConnectionInterface $db,
         private readonly SettingsRepositoryInterface $settings,
         private readonly Question $questions,
-        private readonly Accept $accept
+        private readonly Accept $accept,
+        private readonly Integrations $integrations
     ) {
     }
 
+    /** Offered while Best Answer is enabled (the console command also works after it's switched off). */
     public function available(): bool
+    {
+        return $this->integrations->bestAnswer() && $this->hasBestAnswers();
+    }
+
+    private function hasBestAnswers(): bool
     {
         return $this->db->getSchemaBuilder()->hasColumn('discussions', 'best_answer_post_id');
     }
@@ -49,7 +56,7 @@ class Import
         }
 
         $accepted = 0;
-        if ($this->available()) {
+        if ($this->hasBestAnswers()) {
             Discussion::query()
                 ->where('answers_question', true)
                 ->whereNull('answers_accepted_post_id')

@@ -5,6 +5,7 @@ namespace ErnestDefoe\Answers\Api;
 use ErnestDefoe\Answers\Access;
 use ErnestDefoe\Answers\Question;
 use Flarum\Api\Context;
+use Flarum\Api\Resource\DiscussionResource;
 use Flarum\Api\Schema;
 use Flarum\Post\Post;
 
@@ -18,6 +19,8 @@ class PostFields
     public function __invoke(): array
     {
         $inQuestion = fn (Post $post) => Question::is($post->discussion);
+        // A discussion list includes first posts, but shows neither the viewer's vote nor the author's reputation.
+        $onThread = fn (Post $post, Context $context) => ! $context->listing(DiscussionResource::class) && Question::is($post->discussion);
         $isAnswer = fn (Post $post) => Question::isAnswer($post);
 
         return [
@@ -34,14 +37,14 @@ class PostFields
                 ->property('answers_revisions')
                 ->visible(fn (Post $post) => $post->answers_revisions > 0),
             Schema\Integer::make('answersVote')
-                ->visible(fn (Post $post, Context $context) => ! $context->getActor()->isGuest() && Question::is($post->discussion))
+                ->visible(fn (Post $post, Context $context) => ! $context->getActor()->isGuest() && $onThread($post, $context))
                 ->get(function (Post $post, Context $context) {
                     $this->batch->queueVote($context->request, $post->id);
 
                     return fn () => $this->batch->vote($context->request, $context->getActor(), $post->id);
                 }),
             Schema\Integer::make('answersAuthorRep')
-                ->visible(fn (Post $post) => $post->user_id !== null && Question::is($post->discussion))
+                ->visible(fn (Post $post, Context $context) => $post->user_id !== null && $onThread($post, $context))
                 ->get(function (Post $post, Context $context) {
                     $tags = Question::tagIds($post->discussion);
                     $this->batch->queueRep($context->request, $post->user_id, $tags);

@@ -120,7 +120,8 @@ app.initializers.add('ernestdefoe/answers', () => {
         95
       );
     }
-    if (reviewCount() !== undefined) {
+    // null: the right, but not yet the reputation for it.
+    if (reviewCount() != null) {
       const count = reviewCount() || 0;
       items.add(
         'answersReview',

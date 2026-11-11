@@ -61,6 +61,7 @@ export default class ReviewPage extends Page {
     call('GET', '/answers/reviews' + (pickType ? '' : '?type=' + this.type))
       .then((r) => {
         this.counts = r.counts || {};
+        this.denied = !!r.denied;
         this.needed = r.needed;
         if (pickType) {
           this.type = TYPES.find((type) => this.counts[type]) || 'low_quality';

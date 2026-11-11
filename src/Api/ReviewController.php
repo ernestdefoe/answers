@@ -56,6 +56,9 @@ class ReviewController implements RequestHandlerInterface
 
         // Tags where this member's reputation is enough; moderators review everywhere they moderate.
         $earned = array_keys(array_filter($reputation->forUser($actor->id), fn ($p) => $p >= $settings->int('review_reputation')));
+        if (! $earned && ! $actor->hasPermissionLike('answersModerate')) {
+            return null;
+        }
 
         return $db->table('answers_reviews')
             ->join('posts', 'posts.id', '=', 'answers_reviews.post_id')
@@ -75,7 +78,8 @@ class ReviewController implements RequestHandlerInterface
     {
         $query = self::queue($this->db, $actor, $this->reputation, $this->settings);
         if (! $query) {
-            throw new PermissionDeniedException();
+            // Nothing this member may review (yet): an empty queue, and the page says why.
+            return new JsonResponse(['counts' => [], 'items' => [], 'needed' => $this->settings->int('review_approvals'), 'denied' => true]);
         }
 
         $counts = (clone $query)->groupBy('answers_reviews.type')->select('answers_reviews.type')->selectRaw('count(*) as n')->pluck('n', 'type');

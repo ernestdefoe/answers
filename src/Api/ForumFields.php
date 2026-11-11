@@ -34,8 +34,9 @@ class ForumFields
     {
         return [
             Schema\Integer::make('answersReviewCount')
+                ->nullable()
                 ->visible(fn ($forum, Context $context) => $context->showing() && $this->mayReview($context))
-                ->get(fn ($forum, Context $context) => (int) ReviewController::queue($this->db, $context->getActor(), $this->reputation, $this->settings)?->count()),
+                ->get(fn ($forum, Context $context) => ReviewController::queue($this->db, $context->getActor(), $this->reputation, $this->settings)?->count()),
             Schema\Attribute::make('answersBounty')
                 ->get(fn () => [
                     'amounts' => Settings::BOUNTY_AMOUNTS,
@@ -44,8 +45,9 @@ class ForumFields
                     'moneyName' => $this->integrations->money() ? (string) $this->raw->get('antoinefr-money.moneyname', '[money]') : null,
                 ]),
             Schema\Integer::make('answersCommentLength')->get(fn () => $this->settings->int('comment_length')),
+            // Admins only, and only while Best Answer is enabled: the column check is a schema query.
             Schema\Boolean::make('answersBestAnswerImport')
-                ->visible(fn ($forum, Context $context) => $context->getActor()->isAdmin())
+                ->visible(fn ($forum, Context $context) => $context->getActor()->isAdmin() && $this->integrations->bestAnswer())
                 ->get(fn () => $this->import->available()),
         ];
     }
