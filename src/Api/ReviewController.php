@@ -64,6 +64,8 @@ class ReviewController implements RequestHandlerInterface
             ->join('posts', 'posts.id', '=', 'answers_reviews.post_id')
             ->where('answers_reviews.status', 'open')
             ->whereNull('posts.hidden_at')
+            // Held for approval (or otherwise private): never in the queue; the per-item load below re-checks visibility too.
+            ->where('posts.is_private', false)
             ->where(fn ($q) => $q->whereNull('posts.user_id')->orWhere('posts.user_id', '<>', $actor->id))
             ->where(fn ($q) => $q->whereNull('answers_reviews.user_id')->orWhere('answers_reviews.user_id', '<>', $actor->id))
             ->whereNotExists(fn ($q) => $q->selectRaw('1')->from('answers_review_votes')
@@ -89,7 +91,7 @@ class ReviewController implements RequestHandlerInterface
             ->get(['answers_reviews.id', 'answers_reviews.type', 'answers_reviews.post_id', 'answers_reviews.content', 'answers_reviews.summary', 'answers_reviews.user_id', 'answers_reviews.created_at']);
 
         // Re-check each against the real rules (a moderator query is broad; tag permissions are per question).
-        $posts = Post::query()->whereIn('id', $rows->pluck('post_id'))->with(['discussion.tags', 'user'])->get()->keyBy('id');
+        $posts = Post::query()->whereVisibleTo($actor)->whereIn('posts.id', $rows->pluck('post_id'))->with(['discussion.tags', 'user'])->get()->keyBy('id');
         $suggesters = User::query()->whereIn('id', $rows->pluck('user_id')->filter())->get()->keyBy('id');
 
         $items = [];

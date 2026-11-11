@@ -194,10 +194,6 @@ return [
             (new UserData())->addType(AnswersData::class),
         ])
         ->whenExtensionEnabled('flarum-approval', fn () => [
-            (new Extend\Event())->listen('Flarum\Approval\Event\PostWasApproved', function ($event) {
-                if (Question::is($event->post->discussion)) {
-                    resolve(Question::class)->recount($event->post->discussion_id);
-                }
-            }),
+            (new Extend\Event())->listen('Flarum\Approval\Event\PostWasApproved', fn ($event) => resolve(Lifecycle::class)->approved($event->post)),
         ]),
 ];

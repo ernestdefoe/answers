@@ -119,4 +119,37 @@ class IntegrationsTest extends TestCase
         $this->send($this->request('POST', '/api/answers/discussions/1/accept', ['authenticatedAs' => 2, 'json' => ['postId' => 3]]));
         $this->assertSame(100.0, (float) $this->db()->table('users')->where('id', 4)->value('money'));
     }
+
+    #[Test]
+    public function answers_held_for_approval_stay_out_of_the_review_queue_until_approved(): void
+    {
+        $this->extension('flarum-tags', 'flarum-flags', 'flarum-approval', 'ernestdefoe-answers');
+        $this->extend((new \Flarum\Extend\ThrottleApi())->remove('postTimeout'));
+        $this->seed();
+        $this->prepareDatabase(['answers_reputation' => [['user_id' => 3, 'tag_id' => 1, 'points' => 600]]]);
+        $this->app();
+        $this->db()->table('tags')->where('id', 1)->update(['answers_enabled' => true]);
+        resolve(Question::class)->refreshFlags([1]);
+        // Members' replies need approval.
+        $this->db()->table('group_permission')->where('permission', 'discussion.replyWithoutApproval')->delete();
+
+        $response = $this->send($this->request('POST', '/api/posts', ['authenticatedAs' => 2, 'json' => ['data' => ['type' => 'posts',
+            'attributes' => ['content' => 'Buy cheap pills here'], 'relationships' => ['discussion' => ['data' => ['type' => 'discussions', 'id' => '1']]]]]]));
+        $this->assertSame(201, $response->getStatusCode(), (string) $response->getBody());
+        $id = (int) json_decode((string) $response->getBody(), true)['data']['id'];
+        $this->assertTrue((bool) $this->db()->table('posts')->where('id', $id)->value('is_private'));
+        $this->assertSame(0, $this->db()->table('answers_reviews')->where('post_id', $id)->count(), 'nothing queued while held');
+
+        // Even an item that was queued for a private post never reaches a reviewer.
+        $this->db()->table('answers_reviews')->insert(['type' => 'low_quality', 'post_id' => $id, 'discussion_id' => 1, 'user_id' => 2, 'status' => 'open', 'created_at' => Carbon::now()]);
+        $queue = json_decode((string) $this->send($this->request('GET', '/api/answers/reviews', ['authenticatedAs' => 3]))->getBody(), true);
+        $this->assertSame([], $queue['items']);
+        $this->db()->table('answers_reviews')->where('post_id', $id)->delete();
+
+        // Approved: now it's an answer, and it's queued.
+        $response = $this->send($this->request('PATCH', '/api/posts/'.$id, ['authenticatedAs' => 1, 'json' => ['data' => ['type' => 'posts', 'id' => (string) $id, 'attributes' => ['isApproved' => true]]]]));
+        $this->assertSame(200, $response->getStatusCode(), (string) $response->getBody());
+        $this->assertGreaterThan(0, $this->db()->table('answers_reviews')->where('post_id', $id)->count());
+        $this->assertSame(3, (int) $this->db()->table('discussions')->where('id', 1)->value('answers_count'));
+    }
 }

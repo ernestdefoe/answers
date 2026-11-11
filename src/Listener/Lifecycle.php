@@ -101,6 +101,23 @@ class Lifecycle
         $this->questions->recount($post->discussion_id);
         $post->discussion->answers_count = (int) $this->db->table('discussions')->where('id', $post->discussion_id)->value('answers_count');
 
+        // A post held for approval is private: nobody reviews it until a moderator approves it (approved()).
+        if (! $post->is_private) {
+            $this->queueReviews($post);
+        }
+    }
+
+    /** flarum/approval let a held answer through: count it, and queue it as if it had just been posted. */
+    public function approved(Post $post): void
+    {
+        if (Question::isAnswer($post)) {
+            $this->questions->recount($post->discussion_id);
+            $this->queueReviews($post);
+        }
+    }
+
+    private function queueReviews(Post $post): void
+    {
         $author = $post->user;
         if (! $author || $this->access->moderates($author, $post->discussion)) {
             return;
