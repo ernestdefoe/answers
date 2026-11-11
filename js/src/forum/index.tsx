@@ -125,8 +125,16 @@ app.initializers.add('ernestdefoe/answers', () => {
       const count = reviewCount() || 0;
       items.add(
         'answersReview',
-        <LinkButton href={app.route('answers.review')} icon="fas fa-clipboard-check" active={route === 'answers.review'}>
-          {t('nav.review')} {count > 0 && <span className="Button-badge">{formatNumber(count)}</span>}
+        // The count is an attribute, not a child: the phone's nav dropdown reuses the active item's children for
+        // its button, and a badge element drawn in both places goes stale in one of them.
+        <LinkButton
+          href={app.route('answers.review')}
+          icon="fas fa-clipboard-check"
+          active={route === 'answers.review'}
+          className="Answers-reviewNav"
+          data-count={count > 0 ? formatNumber(count) : undefined}
+        >
+          {t('nav.review')}
         </LinkButton>,
         94
       );
