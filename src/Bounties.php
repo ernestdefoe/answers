@@ -12,6 +12,8 @@ use Flarum\Post\Post;
 use Flarum\User\User;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Database\ConnectionInterface;
+use Psr\Log\LoggerInterface;
+use Throwable;
 
 /**
  * Bounties, Stack Overflow's way. The amount is taken when the bounty starts
@@ -28,7 +30,8 @@ class Bounties
         private readonly Settings $settings,
         private readonly Integrations $integrations,
         private readonly NotificationSyncer $notifications,
-        private readonly Dispatcher $events
+        private readonly Dispatcher $events,
+        private readonly LoggerInterface $log
     ) {
     }
 
@@ -113,22 +116,11 @@ class Bounties
         $done = 0;
         $due = $this->db->table('answers_bounties')->where('status', 'open')->where('ends_at', '<=', Carbon::now())->get();
         foreach ($due as $bounty) {
-            $best = Post::query()
-                ->where('discussion_id', $bounty->discussion_id)
-                ->where('type', 'comment')
-                ->whereNull('answers_parent_id')
-                ->whereNull('hidden_at')
-                ->where('is_private', false)
-                ->where('number', '>', 1)
-                ->where('created_at', '>=', $bounty->starts_at)
-                ->where('answers_score', '>=', 2)
-                ->when($bounty->user_id, fn ($q) => $q->where(fn ($q) => $q->whereNull('user_id')->orWhere('user_id', '<>', $bounty->user_id)))
-                ->orderByDesc('answers_score')->orderBy('created_at')
-                ->first();
-
-            if ($best && $best->user_id) {
-                $this->award($bounty, $best, intdiv((int) $bounty->amount, 2));
-            } else {
+            // One bounty failing must not stop the rest from closing.
+            try {
+                $this->expireOne($bounty);
+            } catch (Throwable $e) {
+                $this->log->error('Answers could not close bounty '.$bounty->id.': '.$e->getMessage());
                 $this->close($bounty, 'expired');
             }
             $done++;
@@ -141,8 +133,37 @@ class Bounties
      * Pay a bounty, once. The claim (open → awarded) is a conditional update, and only the caller whose
      * claim changed the row pays: an accept during the expiry run, or two accepts at once, can't both pay.
      */
+    private function expireOne(object $bounty): void
+    {
+        $best = Post::query()
+            ->where('discussion_id', $bounty->discussion_id)
+            ->where('type', 'comment')
+            ->whereNull('answers_parent_id')
+            ->whereNull('hidden_at')
+            ->where('is_private', false)
+            ->where('number', '>', 1)
+            ->where('created_at', '>=', $bounty->starts_at)
+            ->where('answers_score', '>=', 2)
+            ->when($bounty->user_id, fn ($q) => $q->where(fn ($q) => $q->whereNull('user_id')->orWhere('user_id', '<>', $bounty->user_id)))
+            ->orderByDesc('answers_score')->orderBy('created_at')
+            ->first();
+
+        if ($best && $best->user_id) {
+            $this->award($bounty, $best, intdiv((int) $bounty->amount, 2));
+        } else {
+            $this->close($bounty, 'expired');
+        }
+    }
+
     private function award(object $bounty, Post $post, int $amount): void
     {
+        // Money switched off since the bounty started: there's nowhere to pay it (or refund it), so it ends unpaid.
+        if ($bounty->currency === 'money' && ! $this->integrations->money()) {
+            $this->close($bounty, 'expired');
+
+            return;
+        }
+
         $paid = $this->db->transaction(function () use ($bounty, $post, $amount) {
             if (! $this->close($bounty, 'awarded', $post, $amount)) {
                 return false;

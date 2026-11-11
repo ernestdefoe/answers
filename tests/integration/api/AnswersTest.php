@@ -666,4 +666,30 @@ class AnswersTest extends TestCase
         $this->assertSame(20, $this->rep(2));
         $this->assertSame(0, (int) $this->discussion(3)->answers_bounty);
     }
+
+    #[Test]
+    public function money_bounties_end_cleanly_once_money_is_switched_off(): void
+    {
+        $this->boot();
+        $bounty = fn (int $d, string $currency, int $ago) => $this->db()->table('answers_bounties')->insertGetId([
+            'discussion_id' => $d, 'user_id' => 2, 'tag_id' => 1, 'amount' => 100, 'currency' => $currency, 'reason' => 'attention',
+            'status' => 'open', 'starts_at' => Carbon::now()->subDays(10), 'ends_at' => Carbon::now()->subDays($ago),
+        ]);
+        // Money isn't enabled here (antoinefr/money off): an expired Money bounty, then a reputation one.
+        $this->db()->table('posts')->where('id', 2)->update(['answers_score' => 3, 'created_at' => Carbon::now()->subDays(9)]);
+        $money = $bounty(1, 'money', 2);
+        $rep = $bounty(3, 'rep', 1);
+
+        $this->assertSame(2, resolve(Bounties::class)->expire(), 'both close; the first does not stop the second');
+        $this->assertSame('expired', $this->db()->table('answers_bounties')->where('id', $money)->value('status'));
+        $this->assertSame('expired', $this->db()->table('answers_bounties')->where('id', $rep)->value('status'));
+
+        // Accepting while a Money bounty is still open doesn't fail either.
+        $this->db()->table('answers_bounties')->delete();
+        $open = $bounty(1, 'money', -3);
+        [$status] = $this->api('POST', '/answers/discussions/1/accept', 2, ['postId' => 2]);
+        $this->assertSame(200, $status);
+        $this->assertSame('expired', $this->db()->table('answers_bounties')->where('id', $open)->value('status'));
+        $this->assertSame(Question::SOLVED, (int) $this->discussion(1)->answers_state);
+    }
 }
