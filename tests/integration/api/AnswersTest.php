@@ -836,4 +836,39 @@ class AnswersTest extends TestCase
         $this->assertNotEmpty($levels);
         $this->assertSame([$baseline], array_values(array_unique($levels)), 'every reputation event was announced after its transaction committed');
     }
+
+    #[Test]
+    public function a_bounty_that_fails_to_close_stays_open_for_the_next_run(): void
+    {
+        $this->boot();
+        $this->db()->table('posts')->where('id', 2)->update(['answers_score' => 3, 'created_at' => Carbon::now()->subDays(9)]);
+        $broken = $this->db()->table('answers_bounties')->insertGetId(['discussion_id' => 1, 'user_id' => 2, 'tag_id' => 1, 'amount' => 100, 'currency' => 'rep',
+            'reason' => 'attention', 'status' => 'open', 'starts_at' => Carbon::now()->subDays(10), 'ends_at' => Carbon::now()->subDays(2)]);
+        $fine = $this->db()->table('answers_bounties')->insertGetId(['discussion_id' => 3, 'user_id' => 4, 'tag_id' => 1, 'amount' => 100, 'currency' => 'rep',
+            'reason' => 'attention', 'status' => 'open', 'starts_at' => Carbon::now()->subDays(10), 'ends_at' => Carbon::now()->subDay()]);
+
+        // A failure while closing the first (say a passing deadlock): it stays open; the second still closes.
+        $c = resolve(\Illuminate\Contracts\Container\Container::class);
+        $bounties = new class($broken, ...array_map(fn ($class) => $c->make($class), [
+            \Illuminate\Database\ConnectionInterface::class, \ErnestDefoe\Answers\Reputation::class, \ErnestDefoe\Answers\Settings::class,
+            \ErnestDefoe\Answers\Integrations::class, \Flarum\Notification\NotificationSyncer::class,
+            \Illuminate\Contracts\Events\Dispatcher::class, \Psr\Log\LoggerInterface::class,
+        ])) extends Bounties {
+            public function __construct(private int $failing, ...$deps)
+            {
+                parent::__construct(...$deps);
+            }
+
+            protected function expireOne(object $bounty): void
+            {
+                if ((int) $bounty->id === $this->failing) {
+                    throw new \RuntimeException('deadlock, try again');
+                }
+                parent::expireOne($bounty);
+            }
+        };
+        $this->assertSame(1, $bounties->expire());
+        $this->assertSame('open', $this->db()->table('answers_bounties')->where('id', $broken)->value('status'));
+        $this->assertSame('expired', $this->db()->table('answers_bounties')->where('id', $fine)->value('status'));
+    }
 }

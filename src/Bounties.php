@@ -116,14 +116,15 @@ class Bounties
         $done = 0;
         $due = $this->db->table('answers_bounties')->where('status', 'open')->where('ends_at', '<=', Carbon::now())->get();
         foreach ($due as $bounty) {
-            // One bounty failing must not stop the rest from closing.
+            // One bounty failing must not stop the rest. It stays open and the next run tries again (a passing
+            // deadlock mustn't cost anyone a spent bounty); the one known dead end, Money switched off, award()
+            // closes itself.
             try {
                 $this->expireOne($bounty);
+                $done++;
             } catch (Throwable $e) {
-                $this->log->error('Answers could not close bounty '.$bounty->id.': '.$e->getMessage());
-                $this->close($bounty, 'expired');
+                $this->log->error('Answers could not close bounty '.$bounty->id.' (will retry): '.$e->getMessage());
             }
-            $done++;
         }
 
         return $done;
@@ -133,7 +134,7 @@ class Bounties
      * Pay a bounty, once. The claim (open → awarded) is a conditional update, and only the caller whose
      * claim changed the row pays: an accept during the expiry run, or two accepts at once, can't both pay.
      */
-    private function expireOne(object $bounty): void
+    protected function expireOne(object $bounty): void
     {
         // A hidden question pays nobody: its bounty just ends.
         if ($this->db->table('discussions')->where('id', $bounty->discussion_id)->whereNull('hidden_at')->doesntExist()) {
