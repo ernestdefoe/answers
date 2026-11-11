@@ -88,8 +88,9 @@ class Reviews
         $post = CommentPost::query()->find($item->post_id);
         $status = ['ok' => 'ok', 'hide' => 'hidden', 'approve' => 'approved', 'reject' => 'rejected'][$verdict];
 
-        // The answer changed since the edit was suggested: applying it would throw the newer edit away.
-        if ($post && $verdict === 'approve' && $item->base_hash && ! hash_equals($item->base_hash, self::hash($post))) {
+        // The answer changed since the edit was suggested: applying it would throw the newer edit away. A
+        // reviewer's improved text is their own edit, made looking at the answer as it is now, so it applies.
+        if ($post && $verdict === 'approve' && $content === null && $item->base_hash && ! hash_equals($item->base_hash, self::hash($post))) {
             $verdict = 'outdated';
             $status = 'outdated';
         }

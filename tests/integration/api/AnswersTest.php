@@ -760,6 +760,14 @@ class AnswersTest extends TestCase
         $this->assertSame('outdated', $result['status']);
         $this->assertStringContainsString('rewrote this answer completely', (string) $this->db()->table('posts')->where('id', 2)->value('content'));
         $this->assertStringNotContainsString('Suggested addition', (string) $this->db()->table('posts')->where('id', 2)->value('content'));
+
+        // A reviewer who rewrites an outdated suggestion against the current text: that edit applies.
+        $this->api('POST', '/answers/posts/2/suggest', 4, ['content' => 'The author rewrote this answer completely. Another addition.']);
+        $this->api('PATCH', '/posts/2', 1, ['data' => ['type' => 'posts', 'id' => '2', 'attributes' => ['content' => 'Edited once more by a moderator.']]]);
+        $item = $this->db()->table('answers_reviews')->where('type', 'suggested_edit')->where('status', 'open')->first();
+        [, $result] = $this->api('POST', '/answers/reviews/'.$item->id, 5, ['verdict' => 'approve', 'content' => 'Edited once more by a moderator. Plus the reviewer\'s improvement.']);
+        $this->assertSame('approved', $result['status']);
+        $this->assertStringContainsString('reviewer', (string) $this->db()->table('posts')->where('id', 2)->value('content'));
     }
 
     #[Test]
