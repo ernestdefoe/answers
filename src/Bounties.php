@@ -135,6 +135,13 @@ class Bounties
      */
     private function expireOne(object $bounty): void
     {
+        // A hidden question pays nobody: its bounty just ends.
+        if ($this->db->table('discussions')->where('id', $bounty->discussion_id)->whereNull('hidden_at')->doesntExist()) {
+            $this->close($bounty, 'expired');
+
+            return;
+        }
+
         $best = Post::query()
             ->where('discussion_id', $bounty->discussion_id)
             ->where('type', 'comment')

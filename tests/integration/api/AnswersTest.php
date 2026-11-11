@@ -784,4 +784,18 @@ class AnswersTest extends TestCase
         $this->assertSame([6], $rows, 'the history keeps the vote that still stands');
         $this->assertSame(10, $this->rep(3));
     }
+
+    #[Test]
+    public function a_hidden_question_pays_no_bounty(): void
+    {
+        $this->boot();
+        $this->db()->table('posts')->where('id', 2)->update(['answers_score' => 3, 'created_at' => Carbon::now()->subDays(9)]);
+        $this->db()->table('answers_bounties')->insert(['discussion_id' => 1, 'user_id' => 2, 'tag_id' => 1, 'amount' => 100, 'currency' => 'rep',
+            'reason' => 'attention', 'status' => 'open', 'starts_at' => Carbon::now()->subDays(10), 'ends_at' => Carbon::now()->subDay()]);
+        $this->db()->table('discussions')->where('id', 1)->update(['hidden_at' => Carbon::now()]);
+
+        resolve(Bounties::class)->expire();
+        $this->assertSame('expired', $this->db()->table('answers_bounties')->value('status'));
+        $this->assertSame(0, $this->rep(3));
+    }
 }
