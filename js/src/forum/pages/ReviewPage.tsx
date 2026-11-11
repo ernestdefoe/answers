@@ -190,7 +190,8 @@ export default class ReviewPage extends Page {
     if (verdict === 'approve' && this.improving[item.id] !== undefined) body.content = this.improving[item.id];
 
     call('POST', `/answers/reviews/${item.id}`, body)
-      .then(() => {
+      .then((r) => {
+        if (r.status === 'outdated') app.alerts.show({ type: 'warning' }, t('review.outdated'));
         this.items = (this.items || []).filter((i) => i !== item);
         this.counts[item.type] = Math.max(0, (this.counts[item.type] || 1) - 1);
         const left = app.forum.attribute<number>('answersReviewCount');

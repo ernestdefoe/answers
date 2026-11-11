@@ -735,4 +735,22 @@ class AnswersTest extends TestCase
         $this->assertSame(8, $this->rep(3));
         $this->assertSame(-1, $this->rep(6));
     }
+
+    #[Test]
+    public function an_outdated_suggestion_never_overwrites_a_newer_edit(): void
+    {
+        $this->boot();
+        [, $body] = $this->api('GET', '/answers/posts/2/revisions', 4);
+        $this->api('POST', '/answers/posts/2/suggest', 4, ['content' => $body['source'].' Suggested addition.']);
+
+        // The answer is edited after the suggestion was made.
+        [$status] = $this->api('PATCH', '/posts/2', 1, ['data' => ['type' => 'posts', 'id' => '2', 'attributes' => ['content' => 'The author rewrote this answer completely.']]]);
+        $this->assertSame(200, $status);
+
+        $item = $this->db()->table('answers_reviews')->where('type', 'suggested_edit')->first();
+        [, $result] = $this->api('POST', '/answers/reviews/'.$item->id, 5, ['verdict' => 'approve']);
+        $this->assertSame('outdated', $result['status']);
+        $this->assertStringContainsString('rewrote this answer completely', (string) $this->db()->table('posts')->where('id', 2)->value('content'));
+        $this->assertStringNotContainsString('Suggested addition', (string) $this->db()->table('posts')->where('id', 2)->value('content'));
+    }
 }

@@ -134,6 +134,7 @@ ernestdefoe-answers:
       hide: Hide
       empty: Nothing to review here. Thanks for helping!
       denied: Reviewing needs more reputation in a Q&A tag.
+      outdated: The answer was edited after this suggestion was made, so it wasn't applied.
     profile:
       nav: Answers
       accepted: "{count, plural, one {answer accepted} other {answers accepted}}"

@@ -48,9 +48,16 @@ class Reviews
             'user_id' => $userId ?? $post->user_id,
             'content' => $content,
             'summary' => $summary,
+            // What the answer said when the edit was suggested: approving it later must not undo a newer edit.
+            'base_hash' => $type === 'suggested_edit' ? self::hash($post) : null,
             'status' => 'open',
             'created_at' => Carbon::now(),
         ]);
+    }
+
+    private static function hash(Post $post): string
+    {
+        return sha1(trim((string) $post->content));
     }
 
     /**
@@ -80,6 +87,12 @@ class Reviews
     {
         $post = CommentPost::query()->find($item->post_id);
         $status = ['ok' => 'ok', 'hide' => 'hidden', 'approve' => 'approved', 'reject' => 'rejected'][$verdict];
+
+        // The answer changed since the edit was suggested: applying it would throw the newer edit away.
+        if ($post && $verdict === 'approve' && $item->base_hash && ! hash_equals($item->base_hash, self::hash($post))) {
+            $verdict = 'outdated';
+            $status = 'outdated';
+        }
 
         if ($post && $verdict === 'hide') {
             $post->hide($actor);
