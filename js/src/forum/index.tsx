@@ -253,6 +253,17 @@ app.initializers.add('ernestdefoe/answers', () => {
       </span>,
       80
     );
+    // FoF Discussion Views pins its count over the right edge, where this stack sits: fold it in below.
+    const views = discussion.attribute<number | undefined>('views');
+    if (typeof views === 'number') {
+      items.add(
+        'answersViews',
+        <span className="Answers-stat--views" aria-label={extractText(t('list.views', { count: views }))}>
+          <Icon name="far fa-eye" /> {formatNumber(views)}
+        </span>,
+        -10
+      );
+    }
   });
 
   hook(DiscussionListItem.prototype, 'elementAttrs', function (this: DiscussionListItem, attrs: any) {

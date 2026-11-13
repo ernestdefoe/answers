@@ -22,6 +22,7 @@ ernestdefoe-answers:
       answers: "{count, plural, one {# answer} other {# answers}}"
       answers_word: "{count, plural, one {answer} other {answers}}"
       votes_word: "{count, plural, one {vote} other {votes}}"
+      views: "{count, plural, one {# view} other {# views}}"
     thread:
       answers: "{count, plural, =0 {No answers yet} one {# answer} other {# answers}}"
       sort_label: Sort answers
